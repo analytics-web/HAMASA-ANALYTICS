@@ -1,2 +1,2 @@
 # hamasa-analytics-backend
-Hamasa aalytics Backend Project
+Hamasa analytics Backend Project
