@@ -9,3 +9,9 @@ passlib[bcrypt]
 python-multipart
 
 pydantic
+redis
+asyncio
+fastapi_limiter
+httpx
+requests
+decouple==0.0.7
