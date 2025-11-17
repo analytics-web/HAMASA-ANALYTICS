@@ -14,12 +14,6 @@ import logging
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
-# sentry_sdk.init(
-#     dsn="https://a63be23a6eaa21f8b01dd5d1f78dfa42@o4510363152613376.ingest.de.sentry.io/4510363154972752",
-#     # Add data like request headers and IP for users,
-#     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-#     send_default_pii=True,
-# )
 
 # sentry_sdk.init(
 #     dsn=os.getenv("SENTRY_DSN"),
