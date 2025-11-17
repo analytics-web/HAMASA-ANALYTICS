@@ -35,7 +35,17 @@ import os
 
 load_dotenv()
 
+# Prefer full DATABASE_URL if available (for Docker)
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    DB_USER = os.getenv("DB_USER", "hamasa_analytics_admin")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME", "hamasa_analytics_db")
+    DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
 APP_ENV = os.getenv("APP_ENV", "development")
 
 if not DATABASE_URL:

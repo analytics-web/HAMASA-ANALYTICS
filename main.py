@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import sentry_sdk
 from api import auth, client, project
 from db import engine
 from api import hamasa_user
@@ -7,8 +9,29 @@ import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 from contextlib import asynccontextmanager
 import logging
+# from sentry_sdk.integrations.fastapi import FastAPIIntegration
+
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
+# sentry_sdk.init(
+#     dsn="https://a63be23a6eaa21f8b01dd5d1f78dfa42@o4510363152613376.ingest.de.sentry.io/4510363154972752",
+#     # Add data like request headers and IP for users,
+#     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+#     send_default_pii=True,
+# )
+
+# sentry_sdk.init(
+#     dsn=os.getenv("SENTRY_DSN"),
+#     integrations=[FastAPIIntegration()],
+#     traces_sample_rate=1.0
+# )
+
+
+origins = ["*"]
+
+
+
 
 app = FastAPI(
     title= "Hamasa Analytics",
@@ -24,7 +47,13 @@ app = FastAPI(
     }
 )
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],         # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],         # Allow all headers
+)
 
 @app.on_event("startup")
 async def startup_event():
@@ -47,7 +76,7 @@ def root():
     return {"message": "Api is running"}
 
 
-app.include_router(auth.router)
-app.include_router(client.router)
-app.include_router(hamasa_user.router)
-app.include_router(project.router)
+app.include_router(auth.router, prefix="/hamasa-api/v1", tags=["Auth"])
+app.include_router(client.router, prefix="/hamasa-api/v1", tags=["Clients"])
+app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Users"])
+app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])

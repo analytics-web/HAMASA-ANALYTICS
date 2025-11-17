@@ -97,6 +97,7 @@ class UserAuth(BaseModel):
     role: UserRole
     first_name: str
     last_name: str
+    is_active: bool
     
     class Config:
         from_attributes = True
@@ -143,6 +144,6 @@ class UserListOut(BaseModel):
 
 # ---------------- Flexible login schema (email or phone) ----------------
 class UserLoginFlexible(BaseModel):
-    identifier: EmailStr | None
+    identifier: EmailStr | str  # can be email or phone number
     password: str
     

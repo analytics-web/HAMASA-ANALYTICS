@@ -10,7 +10,9 @@ from db import get_db
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
+#---------------------
 # Create a project
+# ---------------------
 @router.post("/", response_model=ProjectOut)
 def create_project(
     project: ProjectCreate,
@@ -93,13 +95,18 @@ def create_project(
 
 
 
-
+#------------------------
 # Read all projects
+#------------------------
 @router.get("/", response_model=List[ProjectOut])
 def get_projects(db: Session = Depends(get_db)):
     return db.query(Project).all()
 
+
+
+#------------------------
 # Read single project
+#------------------------
 @router.get("/{project_id}", response_model=ProjectOut)
 def get_project(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -107,7 +114,11 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+
+
+# --------------------------
 # Update project
+# --------------------------
 @router.put("/{project_id}", response_model=ProjectOut)
 def update_project(project_id: str, project: ProjectUpdate, db: Session = Depends(get_db)):
     existing_project = db.query(Project).filter(Project.id == project_id).first()
@@ -122,7 +133,11 @@ def update_project(project_id: str, project: ProjectUpdate, db: Session = Depend
     db.refresh(existing_project)
     return existing_project
 
+
+
+# --------------------------
 # Delete project
+# --------------------------
 @router.delete("/{project_id}", status_code=204)
 def delete_project(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -134,7 +149,9 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
 
 
 
+#----------------------------------------------
 # Create Categories all admins and client admin
+#----------------------------------------------
 @router.post("/categories/", response_model=ProjectCategoryOut)
 def create_category(
         category: ProjectCategoryCreate, 
@@ -150,12 +167,18 @@ def create_category(
     return new_cat
 
 
+#------------------------------
 # get all categories
+#------------------------------
 @router.get("/categories/", response_model=List[ProjectCategoryOut])
 def get_categories(db: Session = Depends(get_db)):
     return db.query(ProjectCategory).all()
 
+
+
+#----------------------------------------------
 # create Thematic Areas all admins 
+#----------------------------------------------
 @router.post("/thematic-areas/", response_model=ProjectThematicAreaOut)
 def create_thematic_area(
         area: ProjectThematicAreaCreate,
@@ -173,14 +196,18 @@ def create_thematic_area(
     db.refresh(new_area)
     return new_area
 
+
+#------------------------------
 # get all thematic areas
+#------------------------------
 @router.get("/thematic-areas/", response_model=List[ProjectThematicAreaOut])
 def get_thematic_areas(db: Session = Depends(get_db)):
     return db.query(ProjectThematicAreas).all()
 
 
-
-# Media Categories
+#------------------------------
+# Media Create Categories
+#------------------------------
 @router.post("/media-categories/", response_model=MediaCategoryOut)
 def create_media_category(
         category: MediaCategoryBase,
@@ -193,11 +220,19 @@ def create_media_category(
     db.refresh(new_cat)
     return new_cat
 
+
+#------------------------------
+# get all media categories
+#------------------------------
 @router.get("/media-categories/", response_model=List[MediaCategoryOut])
 def get_media_categories(db: Session = Depends(get_db)):
     return db.query(MediaCategory).all()
 
-# Media Sources
+
+
+#-------------------
+# Media Create Sources
+#-------------------
 @router.post("/media-sources/", response_model=MediaSourceOut)
 def create_media_source(
     source: MediaSourceBase, db: Session = Depends(get_db)):
@@ -207,13 +242,17 @@ def create_media_source(
     db.refresh(new_source)
     return new_source
 
+#------------------------------
+# get all media sources
+#------------------------------
 @router.get("/media-sources/", response_model=List[MediaSourceOut])
 def get_media_sources(db: Session = Depends(get_db)):
     return db.query(MediaSource).all()
 
 
-
+#-------------------
 # Report Avenues
+#-------------------
 @router.post("/reports/avenues/", response_model=ReportAvenueOut)
 def create_report_avenue(avenue: ReportAvenueBase, db: Session = Depends(get_db)):
     new_avenue = ReportAvenue(name=avenue.name)
@@ -222,11 +261,19 @@ def create_report_avenue(avenue: ReportAvenueBase, db: Session = Depends(get_db)
     db.refresh(new_avenue)
     return new_avenue
 
+
+#------------------------------
+# get all report avenues
+#------------------------------
 @router.get("/reports/avenues/", response_model=List[ReportAvenueOut])
 def get_report_avenues(db: Session = Depends(get_db)):
     return db.query(ReportAvenue).all()
 
+
+
+#-------------------
 # Report Times
+#-------------------
 @router.post("/reports/times/", response_model=ReportTimeOut)
 def create_report_time(time: ReportTimeBase, db: Session = Depends(get_db)):
     new_time = ReportTime(name=time.name)
@@ -235,11 +282,17 @@ def create_report_time(time: ReportTimeBase, db: Session = Depends(get_db)):
     db.refresh(new_time)
     return new_time
 
+#------------------------------
+# get all report times
+#------------------------------
 @router.get("/reports/times/", response_model=List[ReportTimeOut])
 def get_report_times(db: Session = Depends(get_db)):
     return db.query(ReportTime).all()
 
+
+#-------------------------
 # Report Consultations
+#-------------------------
 @router.post("/reports/consultations/", response_model=ReportConsultationOut)
 def create_report_consultation(cons: ReportConsultationBase, db: Session = Depends(get_db)):
     new_cons = ReportConsultation(name=cons.name)
@@ -248,13 +301,17 @@ def create_report_consultation(cons: ReportConsultationBase, db: Session = Depen
     db.refresh(new_cons)
     return new_cons
 
+#------------------------------
+# get all report consultations
+#------------------------------
 @router.get("/reports/consultations/", response_model=List[ReportConsultationOut])
 def get_report_consultations(db: Session = Depends(get_db)):
     return db.query(ReportConsultation).all()
 
 
-
+#--------------------------------
 # Assign collaborator to project
+#--------------------------------
 @router.post("/{project_id}/add-collaborator/{user_id}", response_model=ProjectOut)
 def add_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -263,11 +320,13 @@ def add_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db
         raise HTTPException(404, "Project or User not found")
     if user not in project.collaborators:
         project.collaborators.append(user)
-        db.commit()
+        db.commit() 
         db.refresh(project)
     return project
 
+#--------------------------------
 # Remove collaborator from project
+#--------------------------------
 @router.delete("/{project_id}/remove-collaborator/{user_id}", response_model=ProjectOut)
 def remove_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -279,3 +338,28 @@ def remove_collaborator(project_id: str, user_id: str, db: Session = Depends(get
         db.commit()
         db.refresh(project)
     return project
+
+
+
+#-----------------------------------
+# Get Project Details Needed for ML
+#-----------------------------------
+@router.get("/{project_id}/ml-details", response_model=ProjectMLDetailsOut)
+def get_project_ml_details(
+        project_id: str, 
+        db: Session = Depends(get_db),
+        current_user=Depends(require_role([
+            UserRole.super_admin,
+            UserRole.reviewer,
+        ]))
+    ):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return ProjectMLDetailsOut(
+        id=project.id,
+        title=project.title,
+        thematic_areas=[ta.area for ta in project.thematic_areas],
+        media_sources=[ms.name for ms in project.media_sources],
+    )

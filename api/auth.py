@@ -59,12 +59,16 @@ async def register(
     user: UserCreate, 
     db: Session = Depends(get_db)
 ):
-
     # Check if phone already exists
     db_phone = db.query(User).filter(User.phone_number == user.phone_number).first()
     if db_phone:
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
+    db_phone_email = None
+    if user.email:
+        db_phone_email = db.query(User).filter(User.email == user.email).first()
+        if db_phone_email:
+            raise HTTPException(status_code=400, detail="Email already registered")
 
     try:
         # Hash the password
@@ -113,25 +117,62 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
 
 
 
-# ---------------- Login ----------------
-# @router.post("/login", response_model=Token,
-#              dependencies=[Depends(RateLimiter(times=5, seconds=60))])  # Rate limit to prevent brute force
-# def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-#     # Query by email or phone
-#     if "@" in form_data.identifier:  # looks like email
+#---------------- Login ----------------
+@router.post("/login", response_model=Token,
+             dependencies=[Depends(RateLimiter(times=5, seconds=60))])  
+def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
+    # Query by email or phone
+    if "@" in form_data.identifier:  # looks like email
+        user = db.query(User).filter(User.email == form_data.identifier).first()
+    else:  # treat as phone
+        user = db.query(User).filter(User.phone_number == form_data.identifier).first()
+
+    # Check credentials
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Create access and refresh tokens
+    access_token = create_access_token(
+        data={
+            "sub": str(user.id),
+            "role": user.role,
+            "email": user.email,
+            "phone": user.phone_number,
+        }
+    )
+
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(user.id),
+        }
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": UserAuth.from_orm(user),
+    }
+
+
+
+# #--------------- staff login --------------------------- #
+# @router.post("/staff/login", response_model=Token)
+# def staff_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
+#     # query by email/phone
+#     if "@" in form_data.identifier:
 #         user = db.query(User).filter(User.email == form_data.identifier).first()
-#     else:  # treat as phone
+#     else:
 #         user = db.query(User).filter(User.phone_number == form_data.identifier).first()
 
-#     # Check credentials
 #     if not user or not verify_password(form_data.password, user.hashed_password):
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid credentials",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-#     # Create access and refresh tokens
+#     # tokens
 #     access_token = create_access_token(
 #         data={
 #             "sub": str(user.id),
@@ -155,78 +196,41 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
 #     }
 
 
+# # -------------------------- Client Login ---------------------------- #
+# @router.post("/client/login", response_model=Token)
+# def client_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
 
-#--------------- staff login --------------------------- #
-@router.post("/staff/login", response_model=Token)
-def staff_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-    # query by email/phone
-    if "@" in form_data.identifier:
-        user = db.query(User).filter(User.email == form_data.identifier).first()
-    else:
-        user = db.query(User).filter(User.phone_number == form_data.identifier).first()
+#     if "@" in form_data.identifier:
+#         user = db.query(ClientUser).filter(ClientUser.email == form_data.identifier).first()
+#     else:
+#         user = db.query(ClientUser).filter(ClientUser.phone_number == form_data.identifier).first()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+#     if not user or not verify_password(form_data.password, user.hashed_password):
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    # tokens
-    access_token = create_access_token(
-        data={
-            "sub": str(user.id),
-            "role": user.role,
-            "email": user.email,
-            "phone": user.phone_number,
-        }
-    )
+#     # tokens
+#     access_token = create_access_token(
+#         data={
+#             "sub": str(user.id),
+#             "role": user.role,
+#             "email": user.email,
+#             "phone": user.phone_number,
+#         }
+#     )
 
-    refresh_token = create_refresh_token(
-        data={
-            "sub": str(user.id),
-        }
-    )
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": UserAuth.from_orm(user),
-    }
+#     refresh_token = create_refresh_token(
+#         data={
+#             "sub": str(user.id),
+#         }
+#     )
 
 
-# -------------------------- Client Login ---------------------------- #
-@router.post("/client/login", response_model=Token)
-def client_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-
-    if "@" in form_data.identifier:
-        user = db.query(ClientUser).filter(ClientUser.email == form_data.identifier).first()
-    else:
-        user = db.query(ClientUser).filter(ClientUser.phone_number == form_data.identifier).first()
-
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-    # tokens
-    access_token = create_access_token(
-        data={
-            "sub": str(user.id),
-            "role": user.role,
-            "email": user.email,
-            "phone": user.phone_number,
-        }
-    )
-
-    refresh_token = create_refresh_token(
-        data={
-            "sub": str(user.id),
-        }
-    )
-
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": UserAuth.from_orm(user),
-    }
+#     return {
+#         "access_token": access_token,
+#         "refresh_token": refresh_token,
+#         "token_type": "bearer",
+#         "user": UserAuth.from_orm(user),
+#     }
 
 
 
@@ -389,3 +393,9 @@ def get_current_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     return user
+
+
+#---------------- Sentry Debug Endpoint ----------------
+@router.get("/sentry-debug")
+async def trigger_error():
+    division_by_zero = 1 / 0

@@ -1,0 +1,51 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # --- pip caching ---
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Add SSH key
+      run: |
+        echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+        chmod 600 key.pem
+
+    - name: Deploy to EC2
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
+          cd /var/www/HAMASA-ANALYTICS &&
+
+          echo '➡️ Pulling latest code'
+          git fetch --all &&
+          git reset --hard origin/main &&
+
+          echo '➡️ Updating dependencies'
+          source fast-env/bin/activate &&
+          pip install -r requirements.txt --upgrade --no-cache-dir &&
+
+          echo '➡️ Running database migrations'
+          if [ -f alembic.ini ]; then
+            fast-env/bin/alembic upgrade head;
+          else
+            echo 'No Alembic detected, skipping migrations';
+          fi &&
+
+          echo '➡️ Zero-downtime reload'
+          sudo systemctl reload hamasa.service
+        "

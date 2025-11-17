@@ -141,3 +141,15 @@ class ProjectOut(ProjectBase):
         orm_mode = True
 
 
+
+
+# -----------------------------------
+# Get Project Details Needed for ML
+# -----------------------------------
+class ProjectMLDetailsOut(BaseModel):
+    id: UUID4
+    title: str
+    thematic_areas: List[str] = []
+
+    class Config:
+        orm_mode = True
