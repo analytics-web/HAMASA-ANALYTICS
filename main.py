@@ -72,5 +72,5 @@ def root():
 
 app.include_router(auth.router, prefix="/hamasa-api/v1", tags=["Auth"])
 app.include_router(client.router, prefix="/hamasa-api/v1", tags=["Clients"])
-app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Users"])
+app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Hamasa Users"])
 app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])

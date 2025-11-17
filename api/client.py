@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from core.security import hash_password
-from db import SessionLocal
+from db import SessionLocal, get_db
 from models.client import Client
 from models.hamasa_user import HamasaUser as User, UserRole
 from models.client_user import ClientUser
@@ -22,15 +22,8 @@ logger = logging.getLogger(__name__)
 load_dotenv() 
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-
-router = APIRouter(prefix="/client", tags=["Client"])
+router = APIRouter(prefix="/client", tags=["Clients"])
 
 def generate_password() -> str:
     """Generate a 4-character password in format: [A-Z][a-z][1-9][1-9]"""
@@ -42,9 +35,11 @@ def generate_password() -> str:
     return f"{upper}{lower}{digit1}{digit2}"
 
 
-
+# ----------------------------- 
+# create client and client user 
+# ------------------------------ 
 @router.post(
-        "/client-create",
+        "/create-client",
         response_model=UserClientCreateOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -52,16 +47,14 @@ def generate_password() -> str:
             403: {"description": "You do not have permission to access this resource"},
             400: {"description": "invalid input"},  
         },
-            summary="Create Client for the user",
-            description="Create a new Client ",
-            tags=["Client"]  
+            summary="Create Client and the associated org admin user",
+            description="Create a new Client along with its primary org admin user",
     )
 def createClient( 
     client_data:UserClientCreate,
     current_user=Depends(require_role([UserRole.super_admin])),
     db: Session = Depends(get_db)
 ):
-    
     #check if user exists
     user = None
     user = db.query(ClientUser).filter(
@@ -158,7 +151,9 @@ def createClient(
 
 
 
-#------------------------ update client details ---------------------------- #
+#------------------------ 
+# update client details 
+# -----------------------
 @router.patch(
         "/client-update",
         response_model=ClientOut,
@@ -168,9 +163,7 @@ def createClient(
             403: {"description": "You do not have permission to access this resource"},
             400: {"description": "invalid input"},  
         },
-            summary="Create Client for the user",
-            description="Create a new Client ",
-            tags=["Client"]  
+            summary="Update Client  details",
     )
 def UpdateClient(
     client_data:ClientUpdate,
@@ -180,7 +173,10 @@ def UpdateClient(
     current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
     db: Session = Depends(get_db)
 ):
-    
+    """
+    Org Admins can update their own client details
+    Super Admins can update any client details
+    """
     # validate input
     if(client_id is None and name_of_organisation is None) or (client_id is not None and name_of_organisation is not None):
         raise HTTPException(
@@ -241,7 +237,9 @@ def UpdateClient(
 
 
 
-# ---------------------- Create Collaborators ---------------------- #
+# ---------------------- 
+# Create Collaborators 
+# ---------------------- 
 @router.post(
     "/create-collaborator",
     status_code=status.HTTP_200_OK,
@@ -252,7 +250,6 @@ def UpdateClient(
         400: {"description": "Invalid input data"}, 
     },
     summary="Organisation Admin can create collaborators who are users in their org",
-    tags=["Client"]
 )
 def create_collaborator(
     client_data:UserClientCollaboratorCreate,
@@ -320,7 +317,9 @@ def create_collaborator(
     )
 
 
-#------------------------------ get all clients ----------------------------#
+#------------------------------ 
+# get all clients 
+# -----------------------------
 @router.get(
         "/all-clients", 
         response_model=list[ClientOut]
@@ -334,7 +333,9 @@ def get_all_users(
     return clients
 
 
-# ------------------------ get all client-user -----------------------------#
+# ------------------------ 
+# get all client-users 
+# ------------------------
 @router.get(
         "/all-client-users", 
         response_model=list[UserClientOut]
@@ -351,7 +352,9 @@ def get_all_users(
 
 
 
-#------------------------ update client User details ---------------------- #
+#---------------------------- 
+# update client User details 
+# ---------------------------
 @router.patch(
         "/client-user-update",
         response_model=UserClientOut,
@@ -361,9 +364,8 @@ def get_all_users(
             403: {"description": "You do not have permission to access this resource"},
             400: {"description": "invalid input"},  
         },
-            summary="Update Client  user",
+            summary="Update Client user",
             description="Update client user details",
-            tags=["Client"]  
     )
 def update_client_user(
     client_user_data:UserClientUpdate,
@@ -372,7 +374,11 @@ def update_client_user(
     current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin, UserRole.reviewer, UserRole.data_clerk, UserRole.org_user])), 
     db: Session = Depends(get_db)
 ):
-    
+    """
+    super admins can update any client user details
+    org admins can update any client user details within their org
+    reviewers, data clerks and org users can update their own details only
+    """
     # validate input
     if(client_user_id is None and client_user_phone_number is None) or (client_user_id is not None and client_user_phone_number is not None):
         raise HTTPException(
@@ -395,6 +401,12 @@ def update_client_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client does not exists"
+        )
+    
+    if client_user.id != client_user_id and current_user['role'] not in [UserRole.super_admin, UserRole.org_admin]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this user"
         )
 
     # Validate fields to be update
@@ -432,7 +444,9 @@ def update_client_user(
 
 
 
-#------------------------ update client User passwords ---------------------- #
+#----------------------------- 
+# update client User passwords 
+# ----------------------------
 @router.patch(
         "/client-user-update-password",
         response_model=UserClientOut,
@@ -442,9 +456,8 @@ def update_client_user(
             403: {"description": "You do not have permission to access this resource"},
             400: {"description": "invalid input"},  
         },
-            summary="Update Client  user",
-            description="Update client user details",
-            tags=["Client"]  
+            summary="Update Client user password",
+            description="Update client user password",
     )
 def update_client_user(
     client_user_data:UserClientUpdatePassword,
@@ -453,7 +466,11 @@ def update_client_user(
     current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin, UserRole.reviewer, UserRole.data_clerk, UserRole.org_user])), 
     db: Session = Depends(get_db)
 ):
-    
+    """
+    super admins can update any client user password
+    org admins can update any client user password within their org
+    reviewers, data clerks and org users can update their own password only
+    """
     # validate input
     if(client_user_id is None and client_user_phone_number is None) or (client_user_id is not None and client_user_phone_number is not None):
         raise HTTPException(
@@ -476,6 +493,12 @@ def update_client_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client does not exists"
+        )
+    
+    if client_user.id != client_user_id and current_user['role'] not in [UserRole.super_admin, UserRole.org_admin]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this user"
         )
 
     # Validate fields to be update

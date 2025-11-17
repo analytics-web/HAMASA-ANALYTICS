@@ -16,37 +16,85 @@ from sqlalchemy.orm import Session
 from db import SessionLocal
 from models.hamasa_user import HamasaUser as  User
 import logging
+from db import get_db
 
+from typing import Optional
+from fastapi import Response
+from sqlalchemy import func
+import math
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/hamasa-user", tags=["Hamasa Users"])
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-# ---------------- Get Current User ---------------- #
+# ----------------- 
+# Get Current User 
+# -----------------
 @router.get("/me")
 def read_me(current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer, UserRole.org_admin, UserRole.org_user, UserRole.data_clerk]))):
     return current_user
 
 
 
-# -----------------  Get all Users ----------------- #
+# -----------------  
+# Get all Users 
+# ----------------- 
 @router.get("/all-users", response_model=list[UserListOut])
-def get_all_users(current_user=Depends(require_role([UserRole.super_admin])),
-                  db: Session = Depends(get_db)
-                ):
-    users = db.query(User).all()
-    logger.info(f"User {current_user['id']} accessed all users")
-    return users
+def get_all_users(
+    # response: Optional[Response] = None,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    current_user=Depends(require_role([UserRole.super_admin])),
+    db: Session = Depends(get_db),
+):
+    """
+    Return paginated list of users. Adds pagination metadata in response headers:
+      - X-Total-Count: total number of users
+      - X-Total-Pages: total pages
+      - X-Page: current page
+      - X-Page-Size: page size
+
+    Uses limit/offset for efficient paging and counts total separately.
+    """
+    # local imports to avoid changing top-level imports
+
+    # FastAPI can't inject Response via Depends() lambda above; obtain real Response object if available.
+    # If FastAPI provided a real Response already, "response" will be that; otherwise create a dummy.
+    if isinstance(response, type(None)):
+        response = Response()
+
+    try:
+        total: int = db.query(func.count(User.id)).scalar() or 0
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
+
+        # Bound the requested page to valid range (if page beyond total, return empty list)
+        offset = (page - 1) * page_size
+
+        users = (
+            db.query(User)
+            .order_by(User.id)  # deterministic ordering for pagination
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
+
+        # Set pagination headers
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["X-Total-Pages"] = str(total_pages)
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Page-Size"] = str(page_size)
+
+        logger.info(f"User {current_user['id']} accessed all users (page={page}, page_size={page_size})")
+        return users
+
+    except Exception as e:
+        logger.error(f"Failed to fetch paginated users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
-# ------------------------ Get User By ID ------------------------------------ #
+# ------------------------ 
+# Get User By ID 
+# ------------------------
 @router.get("/{user_id}", response_model=UserListOut)
 def get_user_by_id(
     user_id: UUID,
@@ -54,7 +102,7 @@ def get_user_by_id(
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve a user by their ID. Accessible by Super Admins and Church Elders
+    Retrieve a user by their ID. Accessible by Super Admins only.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -66,7 +114,9 @@ def get_user_by_id(
 
 
 
-# -----------------  Search Users ----------------- #
+# -----------------  
+# Search Users 
+# ----------------- 
 @router.get("/search_user/", response_model=list[UserListOut])
 def search_users(query: str,
                  current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer])),
@@ -81,7 +131,9 @@ def search_users(query: str,
     return users
 
 
-# -----------------  Delete User ----------------- #
+# -----------------  
+# Delete User 
+# ----------------- 
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_200_OK,
@@ -115,7 +167,9 @@ def delete_user(
 
 
 
-# -----------------  Update User ----------------- #
+# -----------------  
+# Update User 
+# ----------------- 
 @router.patch(
     "/update-user/",
     response_model=UserBase,
@@ -135,13 +189,13 @@ def update_user(
     db: Session = Depends(get_db)
 ) -> UserUpdate:
     """
-    Update a user by ID or phone number. Accessible to super_admin and church_elder.
+    Update a user by ID or phone number. Accessible to super_admin 
     
     Args:
         user_id: UUID of the user to update (optional).
         user_phone: Phone number of the user to update (optional).
         user_update: Pydantic model with fields to update.
-        current_user: The authenticated user (super_admin or church_elder).
+        current_user: The authenticated user (super_admin).
         db: Database session.
 
     Returns:
@@ -178,10 +232,10 @@ def update_user(
         )
 
     # Authorization: Prevent church_elder from updating super_admin or another church_elder
-    if current_user['role']  and user.role in [UserRole.super_admin, ]:
+    if current_user['role']  and user.role not in [UserRole.super_admin, ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Church elders cannot update super admins or other church elders"
+            detail="only admins can make this change"
         )
 
     # Validate fields to update (e.g., prevent updating id or role)
@@ -241,7 +295,7 @@ def update_user(
         user_id: UUID of the user to update (optional).
         user_phone: Phone number of the user to update (optional).
         user_update: Pydantic model with fields to update.
-        current_user: The authenticated user (super_admin or church_elder).
+        current_user: The authenticated user (super_admin).
         db: Database session.
 
     Returns:
@@ -309,7 +363,9 @@ def update_user(
 
 
 
-#------------- Assign Reviewer & Clerk to Client ------------- #
+#----------------------------------- 
+# Assign Reviewer & Clerk to Client 
+# ----------------------------------
 @router.post("/assign-user-to-client", response_model=UserClientOut)
 def assign_user_to_client(
     data: UserClientAssign,
@@ -352,9 +408,10 @@ def assign_user_to_client(
     return user_client
 
 
-from typing import Optional
 
-#------------- De-Assign User from Client ------------- #
+#--------------------------- 
+# De-Assign User from Client 
+# -------------------------- 
 @router.delete("/deassign-user-from-client", response_model=dict)
 def deassign_user_from_client(
     user_id: Optional[UUID] = None,

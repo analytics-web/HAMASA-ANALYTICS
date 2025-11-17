@@ -10,7 +10,7 @@ class ProjectCategoryCreate(ProjectCategoryBase):
 class ProjectCategoryOut(ProjectCategoryBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ProjectThematicAreaBase(BaseModel):
@@ -25,7 +25,7 @@ class ProjectThematicAreaCreate(ProjectThematicAreaBase):
 class ProjectThematicAreaOut(ProjectThematicAreaBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -36,7 +36,7 @@ class MediaCategoryOut(MediaCategoryBase):
     id: UUID4
     media_sources: List["MediaSourceOut"] = []
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MediaSourceBase(BaseModel):
@@ -46,7 +46,7 @@ class MediaSourceBase(BaseModel):
 class MediaSourceOut(MediaSourceBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -56,7 +56,7 @@ class ReportAvenueBase(BaseModel):
 class ReportAvenueOut(ReportAvenueBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ReportTimeBase(BaseModel):
     name: str
@@ -64,7 +64,7 @@ class ReportTimeBase(BaseModel):
 class ReportTimeOut(ReportTimeBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ReportConsultationBase(BaseModel):
     name: str
@@ -72,7 +72,7 @@ class ReportConsultationBase(BaseModel):
 class ReportConsultationOut(ReportConsultationBase):
     id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -91,7 +91,7 @@ class ClientUserOut(ClientUserBase):
     id: UUID4
     client_id: UUID4
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -138,7 +138,7 @@ class ProjectOut(ProjectBase):
     report_consultations: List["ReportConsultationOut"] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -152,4 +152,4 @@ class ProjectMLDetailsOut(BaseModel):
     thematic_areas: List[str] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
