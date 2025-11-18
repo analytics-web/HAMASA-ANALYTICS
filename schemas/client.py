@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, constr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, constr, field_validator
 from enum import Enum
 from typing import List, Optional
 from datetime import date
@@ -16,8 +16,24 @@ class ClientBase(BaseModel):
 
 
 
+
 class ClientOut(ClientBase):
-    id:UUID
+    id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserClientOut(BaseModel):
+    id: UUID
+    client_id: UUID
+    first_name: str
+    last_name: str
+    email: Optional[str]
+    phone_number: Optional[str]
+    is_active: bool
+    role: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClientCreate(ClientBase):
@@ -36,3 +52,23 @@ class ClientUpdate(BaseModel):
     contact_person: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
+
+
+class ClientFilters(BaseModel):
+    name: Optional[str] = None
+    country: Optional[str] = None
+    sector: Optional[str] = None
+
+
+class ClientUserFilters(BaseModel):
+    client_id: Optional[UUID] = None
+    email: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+
+class PaginatedResponse(BaseModel):
+    count: int
+    next: Optional[str]
+    previous: Optional[str]
+    results: list

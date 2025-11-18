@@ -2,7 +2,7 @@ import secrets
 import string
 from typing import Optional
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from core.security import hash_password
 from db.db import SessionLocal, get_db
@@ -12,9 +12,11 @@ from models.client_user import ClientUser
 from dotenv import load_dotenv
 from api.deps import oauth2_scheme, require_role
 
-from schemas.client import ClientCreate, ClientOut, ClientUpdate
+from schemas.client import ClientCreate, ClientFilters, ClientOut, ClientUpdate, ClientUserFilters, PaginatedResponse
 from schemas.client_user import UserClient, UserClientAssign, UserClientCollaboratorCreate, UserClientCollaboratorOut, UserClientCreateOut, UserClientOut, UserClientCreate, UserClientUpdate, UserClientUpdatePassword
 import logging
+
+from utils.pagination import paginate_queryset
 
 
 logger = logging.getLogger(__name__)
@@ -320,35 +322,96 @@ def create_collaborator(
 #------------------------------ 
 # get all clients 
 # -----------------------------
+# @router.get(
+#         "/", 
+#         response_model=list[ClientOut]
+#     )
+# def get_all_users( 
+#         current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])), 
+#         db: Session = Depends(get_db)
+#     ):
+#     clients = db.query(Client).all()
+#     logger.info(f"User {current_user['id']} accessed all users")
+#     return clients
 @router.get(
-        "/", 
-        response_model=list[ClientOut]
-    )
-def get_all_users( 
-        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])), 
-        db: Session = Depends(get_db)
+    "/clients",
+    response_model=PaginatedResponse
+)
+def get_all_clients(
+        request: Request,
+        filters: ClientFilters = Depends(),
+        page: int = 1,
+        page_size: int = 10,
+        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+        db: Session = Depends(get_db),
     ):
-    clients = db.query(Client).all()
-    logger.info(f"User {current_user['id']} accessed all users")
-    return clients
+    
+    query = db.query(Client)
+
+    if filters.name:
+        query = query.filter(Client.name_of_organisation.ilike(f"%{filters.name}%"))
+
+    if filters.country:
+        query = query.filter(Client.country.ilike(f"%{filters.country}%"))
+
+    if filters.sector:
+        query = query.filter(Client.sector.ilike(f"%{filters.sector}%"))
+
+    base_url = str(request.url).split("?")[0]
+
+    logger.info(f"User {current_user['id']} accessed all clients")
+
+    return paginate_queryset(query, page, page_size, base_url, ClientOut)
+
+
 
 
 # ------------------------ 
 # get all client-users 
 # ------------------------
+# @router.get(
+#         "/", 
+#         response_model=list[UserClientOut]
+#     )
+# def get_all_users(
+#         current_user=Depends(require_role([
+#         UserRole.super_admin, UserRole.org_admin
+#     ])), 
+#         db: Session = Depends(get_db)
+#     ):
+#     client_users = db.query(ClientUser).all()
+#     logger.info(f"User {current_user['id']} accessed all users")
+#     return client_users
 @router.get(
-        "/", 
-        response_model=list[UserClientOut]
-    )
-def get_all_users(
-        current_user=Depends(require_role([
-        UserRole.super_admin, UserRole.org_admin
-    ])), 
-        db: Session = Depends(get_db)
+    "/client-users",
+    response_model=PaginatedResponse
+)
+def get_all_client_users(
+        request: Request,
+        filters: ClientUserFilters = Depends(),
+        page: int = 1,
+        page_size: int = 10,
+        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+        db: Session = Depends(get_db),
     ):
-    client_users = db.query(ClientUser).all()
-    logger.info(f"User {current_user['id']} accessed all users")
-    return client_users
+
+    query = db.query(ClientUser)
+
+    if filters.client_id:
+        query = query.filter(ClientUser.client_id == filters.client_id)
+
+    if filters.email:
+        query = query.filter(ClientUser.email.ilike(f"%{filters.email}%"))
+
+    if filters.is_active is not None:
+        query = query.filter(ClientUser.is_active == filters.is_active)
+
+    base_url = str(request.url).split("?")[0]
+
+    logger.info(f"User {current_user['id']} accessed all client users")
+
+    return paginate_queryset(query, page, page_size, base_url, UserClientOut)
+
 
 
 
