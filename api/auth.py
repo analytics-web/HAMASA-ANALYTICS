@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from db import SessionLocal
+from db import SessionLocal,get_db
 from models.client_user import ClientUser
 from models.hamasa_user import HamasaUser as  User
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, oauth2_scheme
@@ -42,13 +42,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30))
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # ---------------- Register ----------------

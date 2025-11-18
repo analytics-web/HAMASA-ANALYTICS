@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import csv
+from io import StringIO
+from fastapi import APIRouter, Depends, HTTPException, requests, status
 from sqlalchemy.orm import Session
 from typing import List
 from api.deps import require_role
+from models.ml_analysis_result import MLAnalysisResult
 from models.project import MediaCategory, Project,ProjectCategory, ProjectThematicAreas, MediaSource, ReportAvenue, ReportTime, ReportConsultation
 from models.client_user import ClientUser
 from schemas.hamasa_user import UserRole
@@ -107,9 +110,9 @@ def get_projects(db: Session = Depends(get_db)):
 #------------------------
 # Read single project
 #------------------------
-@router.get("/{project_id}", response_model=ProjectOut)
-def get_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
+@router.get("/{uid}/", response_model=ProjectOut)
+def get_project(uid: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == uid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -119,9 +122,9 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
 # --------------------------
 # Update project
 # --------------------------
-@router.put("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: str, project: ProjectUpdate, db: Session = Depends(get_db)):
-    existing_project = db.query(Project).filter(Project.id == project_id).first()
+@router.put("/{uid}/", response_model=ProjectOut)
+def update_project(uid: str, project: ProjectUpdate, db: Session = Depends(get_db)):
+    existing_project = db.query(Project).filter(Project.id == uid).first()
     if not existing_project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -138,9 +141,9 @@ def update_project(project_id: str, project: ProjectUpdate, db: Session = Depend
 # --------------------------
 # Delete project
 # --------------------------
-@router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
+@router.delete("/{uid}/", status_code=204)
+def delete_project(uid: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == uid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     db.delete(project)
@@ -312,9 +315,9 @@ def get_report_consultations(db: Session = Depends(get_db)):
 #--------------------------------
 # Assign collaborator to project
 #--------------------------------
-@router.post("/{project_id}/add-collaborator/{user_id}", response_model=ProjectOut)
-def add_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
+@router.post("/{uid}/add-collaborator/{user_id}/", response_model=ProjectOut)
+def add_collaborator(uid: str, user_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == uid).first()
     user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
     if not project or not user:
         raise HTTPException(404, "Project or User not found")
@@ -327,9 +330,9 @@ def add_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db
 #--------------------------------
 # Remove collaborator from project
 #--------------------------------
-@router.delete("/{project_id}/remove-collaborator/{user_id}", response_model=ProjectOut)
-def remove_collaborator(project_id: str, user_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
+@router.delete("/{uid}/remove-collaborator/{user_id}/", response_model=ProjectOut)
+def remove_collaborator(uid: str, user_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == uid).first()
     user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
     if not project or not user:
         raise HTTPException(404, "Project or User not found")
@@ -344,16 +347,16 @@ def remove_collaborator(project_id: str, user_id: str, db: Session = Depends(get
 #-----------------------------------
 # Get Project Details Needed for ML
 #-----------------------------------
-@router.get("/{project_id}/ml-details", response_model=ProjectMLDetailsOut)
+@router.get("/{uid}/ml-details/", response_model=ProjectMLDetailsOut)
 def get_project_ml_details(
-        project_id: str, 
-        db: Session = Depends(get_db),
-        current_user=Depends(require_role([
-            UserRole.super_admin,
-            UserRole.reviewer,
-        ]))
-    ):
-    project = db.query(Project).filter(Project.id == project_id).first()
+    uid: UUID4,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.reviewer,
+    ]))
+):
+    project = db.query(Project).filter(Project.id == uid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -363,3 +366,78 @@ def get_project_ml_details(
         thematic_areas=[ta.area for ta in project.thematic_areas],
         media_sources=[ms.name for ms in project.media_sources],
     )
+
+
+# -----------------------------------
+# Project ML Analysis Results
+# -----------------------------------
+@router.post("/ml-csv-url", response_model=MLCSVStoredResponse,
+             dependencies=[Depends(require_role([
+                 UserRole.super_admin,
+                 UserRole.reviewer,
+             ]))])
+def process_ml_csv(
+    payload: MLCSVRequest,
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == payload.uid).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # 1. Download CSV
+    try:
+        response = requests.get(payload.csv_url, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to download CSV: {e}")
+
+    # 2. Parse CSV
+    csv_text = response.text
+    reader = csv.DictReader(StringIO(csv_text))
+    rows = list(reader)
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV is empty")
+
+    # 3. Clear previous ML results for this project
+    db.query(MLAnalysisResult).filter(
+        MLAnalysisResult.uid == project.id
+    ).delete()
+
+    # 4. Insert results
+    for i, row in enumerate(rows):
+        ml_row = MLAnalysisResult(
+            uid=project.id,
+            row_number=i + 1,
+            data=row
+        )
+        db.add(ml_row)
+
+    db.commit()
+
+    return MLCSVStoredResponse(
+        uid=project.id,
+        total_rows=len(rows),
+    )
+
+
+# -----------------------------------
+# Get Project ML Analysis Results
+# -----------------------------------
+@router.get("/{uid}/ml-results")
+def get_ml_results(
+    uid: UUID4,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.reviewer,
+    ]))
+):
+    results = (
+        db.query(MLAnalysisResult)
+        .filter(MLAnalysisResult.uid == uid)
+        .order_by(MLAnalysisResult.row_number)
+        .all()
+    )
+
+    return [r.data for r in results]

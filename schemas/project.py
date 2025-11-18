@@ -149,7 +149,30 @@ class ProjectOut(ProjectBase):
 class ProjectMLDetailsOut(BaseModel):
     id: UUID4
     title: str
-    thematic_areas: List[str] = []
+    thematic_areas: List[str]
+    media_sources: List[str]
 
-    class Config:
-        from_attributes = True
+
+
+
+# -----------------------------------
+# Project ML Details Create/Update
+# -----------------------------------
+class ProjectMLDetailsCreateUpdate(BaseModel):
+    project_id: Optional[UUID4] = None
+    project_title: Optional[str] = None
+
+
+
+
+
+
+class MLCSVRequest(BaseModel):
+    project_id: UUID4
+    csv_url: str
+
+
+class MLCSVStoredResponse(BaseModel):
+    project_id: UUID4
+    total_rows: int
+    status: str = "stored"

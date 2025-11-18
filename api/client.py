@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from core.security import hash_password
-from db import SessionLocal, get_db
+from db.db import SessionLocal, get_db
 from models.client import Client
 from models.hamasa_user import HamasaUser as User, UserRole
 from models.client_user import ClientUser
@@ -39,7 +39,7 @@ def generate_password() -> str:
 # create client and client user 
 # ------------------------------ 
 @router.post(
-        "/create-client",
+        "/",
         response_model=UserClientCreateOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -155,7 +155,7 @@ def createClient(
 # update client details 
 # -----------------------
 @router.patch(
-        "/client-update",
+        "/",
         response_model=ClientOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -241,7 +241,7 @@ def UpdateClient(
 # Create Collaborators 
 # ---------------------- 
 @router.post(
-    "/create-collaborator",
+    "/client-user/",
     status_code=status.HTTP_200_OK,
     response_model=UserClientCollaboratorOut,
     responses={
@@ -321,7 +321,7 @@ def create_collaborator(
 # get all clients 
 # -----------------------------
 @router.get(
-        "/all-clients", 
+        "/", 
         response_model=list[ClientOut]
     )
 def get_all_users( 
@@ -337,7 +337,7 @@ def get_all_users(
 # get all client-users 
 # ------------------------
 @router.get(
-        "/all-client-users", 
+        "/", 
         response_model=list[UserClientOut]
     )
 def get_all_users(
@@ -356,7 +356,7 @@ def get_all_users(
 # update client User details 
 # ---------------------------
 @router.patch(
-        "/client-user-update",
+        "/",
         response_model=UserClientOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -448,7 +448,7 @@ def update_client_user(
 # update client User passwords 
 # ----------------------------
 @router.patch(
-        "/client-user-update-password",
+        "/update-password/",
         response_model=UserClientOut,
         status_code=status.HTTP_200_OK,
         responses={

@@ -6,7 +6,7 @@ from schemas.hamasa_user import UserRole
 from models.hamasa_user import HamasaUser
 from models.client_user import ClientUser
 from sqlalchemy.orm import Session
-from db import get_db
+from db.db import SessionLocal, get_db
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -50,7 +50,7 @@ def get_current_user(
         user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
 
     if not user:
-        raise HTTPException(status_code=401, detail="User not testing found")
+        raise HTTPException(status_code=401, detail="User Not found")
 
     return {"id": str(user.id), "role": role, "user": user}
 

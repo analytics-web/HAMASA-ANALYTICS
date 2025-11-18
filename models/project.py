@@ -3,6 +3,7 @@ from sqlalchemy import UUID, Enum, String, Table, Column, ForeignKey
 from sqlalchemy.orm import relationship
 from models.base import Base
 from models.enums import ProjectStatus
+from sqlalchemy.ext.associationproxy import association_proxy
 
 # Junction tables
 project_category = Table(
@@ -50,6 +51,12 @@ project_report_consultations = Table(
     Column("report_consultation_id", ForeignKey("report_consultations.id", ondelete="CASCADE"), primary_key=True)
 )
 
+# project_media_sources = Table(
+#     "project_media_sources",
+#     Base.metadata,
+#     Column("project_id", ForeignKey("projects.id"), primary_key=True),
+#     Column("media_source_id", ForeignKey("media_sources.id"), primary_key=True) 
+# )
 
 
 # ---------------- Project ----------------
@@ -64,6 +71,9 @@ class Project(Base):
 
     # Relationship to Client
     client = relationship("Client", back_populates="projects")
+    
+    #
+    ml_results = relationship("MLAnalysisResult", back_populates="project", cascade="all, delete")
 
 
     # Many-to-many: Project <-> Category
@@ -81,11 +91,13 @@ class Project(Base):
     )
 
     # One-to-many: Project <-> ProjectMediaSources (junction for MediaSource)
-    media_sources = relationship(
+    media_sources_link = relationship(
         "ProjectMediaSources",
         back_populates="project",
         cascade="all, delete-orphan"
     )
+
+    media_sources = association_proxy("media_sources_link", "media_source")
 
     collaborators = relationship(
         "ClientUser",
@@ -175,7 +187,7 @@ class ProjectMediaSources(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     media_source_id = Column(UUID(as_uuid=True), ForeignKey("media_sources.id"), nullable=False)
 
-    project = relationship("Project", back_populates="media_sources")
+    project = relationship("Project", back_populates="media_sources_link")
     media_source = relationship("MediaSource", back_populates="projects")
 
 
