@@ -10,17 +10,27 @@ class ClientBase(BaseModel):
     name_of_organisation: str
     country:str
     sector:str
-    contact_person:str
+    first_name:str
+    last_name:str
     phone_number:str
     email:EmailStr
 
 
 
 
-class ClientOut(ClientBase):
+class ClientOut(BaseModel):
     id: UUID
+    name_of_organisation: str
+    country: str
+    sector: str
+    phone_number: str
+    email: EmailStr
+
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class UserClientOut(BaseModel):
@@ -40,7 +50,8 @@ class ClientCreate(ClientBase):
     name_of_organisation: str
     country:str
     sector:str
-    contact_person:str
+    first_name:str
+    last_name:str
     phone_number:str
     email:EmailStr
 
@@ -49,7 +60,7 @@ class ClientUpdate(BaseModel):
     name_of_organisation: Optional[str] = None
     country: Optional[str] = None
     sector: Optional[str] = None
-    contact_person: Optional[str] = None
+    first_name: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
 

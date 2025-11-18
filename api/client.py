@@ -16,6 +16,7 @@ from schemas.client import ClientCreate, ClientFilters, ClientOut, ClientUpdate,
 from schemas.client_user import UserClient, UserClientAssign, UserClientCollaboratorCreate, UserClientCollaboratorOut, UserClientCreateOut, UserClientOut, UserClientCreate, UserClientUpdate, UserClientUpdatePassword
 import logging
 
+from utils.client_helpers import split_contact_person
 from utils.pagination import paginate_queryset
 
 
@@ -35,6 +36,9 @@ def generate_password() -> str:
     digit2 = secrets.choice("123456789")           
 
     return f"{upper}{lower}{digit1}{digit2}"
+
+
+
 
 
 # ----------------------------- 
@@ -260,12 +264,15 @@ def UpdateClient(
     identifier = client_id if client_id else name_of_organisation
     logger.info(f"User {current_user['id']} updated client details for the client {identifier}")
 
+    first_name, last_name = split_contact_person(client.contact_person)
+
     return ClientOut(
         id=client.id,
         name_of_organisation=client.name_of_organisation,
         country=client.country,
-        sector=client.name_of_organisation,
-        contact_person=client.contact_person,
+        sector=client.sector,
+        first_name=first_name,
+        last_name=last_name,
         phone_number=client.phone_number,
         email=client.email
     )
