@@ -25,7 +25,7 @@ load_dotenv()
 
 
 
-router = APIRouter(prefix="/client", tags=["Clients"])
+router = APIRouter()
 
 def generate_password() -> str:
     """Generate a 4-character password in format: [A-Z][a-z][1-9][1-9]"""
@@ -41,7 +41,7 @@ def generate_password() -> str:
 # create client and client user 
 # ------------------------------ 
 @router.post(
-        "/",
+        "/clients/",
         response_model=UserClientCreateOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -150,6 +150,39 @@ def createClient(
         plain_password=plain_password
     )
 
+#------------------------------ 
+# get all clients 
+# -----------------------------
+@router.get(
+    "/clients/",
+    response_model=PaginatedResponse
+)
+def get_all_clients(
+        request: Request,
+        filters: ClientFilters = Depends(),
+        page: int = 1,
+        page_size: int = 10,
+        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+        db: Session = Depends(get_db),
+    ):
+    
+    query = db.query(Client)
+
+    if filters.name:
+        query = query.filter(Client.name_of_organisation.ilike(f"%{filters.name}%"))
+
+    if filters.country:
+        query = query.filter(Client.country.ilike(f"%{filters.country}%"))
+
+    if filters.sector:
+        query = query.filter(Client.sector.ilike(f"%{filters.sector}%"))
+
+    base_url = str(request.url).split("?")[0]
+
+    logger.info(f"User {current_user['id']} accessed all clients")
+
+    return paginate_queryset(query, page, page_size, base_url, ClientOut)
+
 
 
 
@@ -157,7 +190,7 @@ def createClient(
 # update client details 
 # -----------------------
 @router.patch(
-        "/",
+        "/clients/",
         response_model=ClientOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -240,10 +273,10 @@ def UpdateClient(
 
 
 # ---------------------- 
-# Create Collaborators 
+# Client User Create Collaborators 
 # ---------------------- 
 @router.post(
-    "/client-user/",
+    "/client-users/",
     status_code=status.HTTP_200_OK,
     response_model=UserClientCollaboratorOut,
     responses={
@@ -319,71 +352,12 @@ def create_collaborator(
     )
 
 
-#------------------------------ 
-# get all clients 
-# -----------------------------
-# @router.get(
-#         "/", 
-#         response_model=list[ClientOut]
-#     )
-# def get_all_users( 
-#         current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])), 
-#         db: Session = Depends(get_db)
-#     ):
-#     clients = db.query(Client).all()
-#     logger.info(f"User {current_user['id']} accessed all users")
-#     return clients
-@router.get(
-    "/clients",
-    response_model=PaginatedResponse
-)
-def get_all_clients(
-        request: Request,
-        filters: ClientFilters = Depends(),
-        page: int = 1,
-        page_size: int = 10,
-        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
-        db: Session = Depends(get_db),
-    ):
-    
-    query = db.query(Client)
-
-    if filters.name:
-        query = query.filter(Client.name_of_organisation.ilike(f"%{filters.name}%"))
-
-    if filters.country:
-        query = query.filter(Client.country.ilike(f"%{filters.country}%"))
-
-    if filters.sector:
-        query = query.filter(Client.sector.ilike(f"%{filters.sector}%"))
-
-    base_url = str(request.url).split("?")[0]
-
-    logger.info(f"User {current_user['id']} accessed all clients")
-
-    return paginate_queryset(query, page, page_size, base_url, ClientOut)
-
-
-
 
 # ------------------------ 
 # get all client-users 
 # ------------------------
-# @router.get(
-#         "/", 
-#         response_model=list[UserClientOut]
-#     )
-# def get_all_users(
-#         current_user=Depends(require_role([
-#         UserRole.super_admin, UserRole.org_admin
-#     ])), 
-#         db: Session = Depends(get_db)
-#     ):
-#     client_users = db.query(ClientUser).all()
-#     logger.info(f"User {current_user['id']} accessed all users")
-#     return client_users
 @router.get(
-    "/client-users",
+    "/client-users/",
     response_model=PaginatedResponse
 )
 def get_all_client_users(
@@ -419,7 +393,7 @@ def get_all_client_users(
 # update client User details 
 # ---------------------------
 @router.patch(
-        "/",
+        "/client-users/",
         response_model=UserClientOut,
         status_code=status.HTTP_200_OK,
         responses={
@@ -511,7 +485,7 @@ def update_client_user(
 # update client User passwords 
 # ----------------------------
 @router.patch(
-        "/update-password/",
+        "/client-users/update-password/",
         response_model=UserClientOut,
         status_code=status.HTTP_200_OK,
         responses={
