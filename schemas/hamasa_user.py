@@ -55,6 +55,20 @@ class UserCreate(BaseModel):
         if len(password.encode("utf-8")) > 72:
             raise ValueError("Password must not exceed 72 bytes")
         return password
+    
+
+class UserOut(BaseModel):
+    first_name: str
+    last_name: str
+    phone_number: str
+    gender: Gender
+    password: str
+    role: UserRole = UserRole.org_user
+    is_active: bool = False
+    email: str | None = None
+
+    class Config:
+        from_attributes = True
 
 class UserResponse(BaseModel):
     id: UUID

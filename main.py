@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
 from api import auth, client, project
@@ -9,17 +9,14 @@ import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 from contextlib import asynccontextmanager
 import logging
+from fastapi.openapi.utils import get_openapi
 # from sentry_sdk.integrations.fastapi import FastAPIIntegration
 
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-
-# sentry_sdk.init(
-#     dsn=os.getenv("SENTRY_DSN"),
-#     integrations=[FastAPIIntegration()],
-#     traces_sample_rate=1.0
-# )
 
 
 origins = ["*"]
@@ -40,6 +37,42 @@ app = FastAPI(
         ]
     }
 )
+
+
+# Middleware to log requests for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.debug(f"Request: {request.method} {request.url} Headers: {request.headers}")
+    response = await call_next(request)
+    return response
+
+# Custom OpenAPI schema for Bearer token
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+    # Apply BearerAuth only to specific routes (optional; remove for global)
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            if path not in ["/hamasa-api/v1/auth/login", "/hamasa-api/v1/auth/refresh-token"]:  # Public endpoints
+                openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 
 app.add_middleware(
     CORSMiddleware,

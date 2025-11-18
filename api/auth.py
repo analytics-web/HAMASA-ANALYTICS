@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from api.deps import get_current_user
 from db import SessionLocal,get_db
 from models.client_user import ClientUser
 from models.hamasa_user import HamasaUser as  User
@@ -13,6 +14,7 @@ from schemas.hamasa_user import (
     UserLoginFlexible,
     Token,
     RefreshTokenRequest,
+    UserOut,
     UserResponse
 )
 from utils.otp import verify_otp, generate_otp
@@ -132,9 +134,8 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
     access_token = create_access_token(
         data={
             "sub": str(user.id),
-            "role": user.role,
+            "role": user.role if user.role else None,
             "email": user.email,
-            "phone": user.phone_number,
         }
     )
 
@@ -368,27 +369,6 @@ async def check_otp(phone: str, otp: str):
 
 
 # ---------------- Get Current User ----------------
-@router.get("/me", response_model=UserCreate)
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return user
-
-
-#---------------- Sentry Debug Endpoint ----------------
-@router.get("/sentry-debug")
-async def trigger_error():
-    division_by_zero = 1 / 0
+@router.get("/me")
+def get_me(current_user = Depends(get_current_user)):
+    return current_user
