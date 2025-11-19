@@ -18,6 +18,7 @@ import logging
 
 from utils.client_helpers import split_contact_person, validate_unique_client_fields
 from utils.pagination import paginate_queryset
+from fastapi_limiter.depends import RateLimiter
 
 
 logger = logging.getLogger(__name__)
@@ -45,122 +46,131 @@ def generate_password() -> str:
 # create client and client user 
 # ------------------------------ 
 @router.post(
-        "/clients/",
-        response_model=UserClientCreateOut,
-        status_code=status.HTTP_200_OK,
-        responses={
-            404: {"description": "Client not found"},
-            403: {"description": "You do not have permission to access this resource"},
-            400: {"description": "invalid input"},  
-        },
-            summary="Create Client and the associated org admin user",
-            description="Create a new Client along with its primary org admin user",
-    )
-def createClient( 
-    client_data:UserClientCreate,
+    "/clients/",
+    response_model=UserClientCreateOut,
+    status_code=status.HTTP_200_OK,
+    summary="Create Client and the associated org admin user",
+)
+def createClient(
+    client_data: UserClientCreate,
     current_user=Depends(require_role([UserRole.super_admin])),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    #check if user exists
-    user = None
-    user = db.query(ClientUser).filter(
-        (User.email.ilike(f"%{client_data.email}%")) |
-        (User.phone_number.ilike(f"%{client_data.email}%"))
+    # -----------------------------------------------------
+    # 1. Check if a user with this email or phone already exists
+    # -----------------------------------------------------
+    existing_user = db.query(ClientUser).filter(
+        (ClientUser.email.ilike(client_data.email)) |
+        (ClientUser.phone_number.ilike(client_data.phone_number))
     ).first()
 
-    if bool(user):
+    if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User Exists"
+            status_code=400,
+            detail="A user with this email or phone number already exists"
         )
 
-    # check for name oforganisation if exists in db
+    # -----------------------------------------------------
+    # 2. Check unique fields for Client (ignores soft-deleted ones)
+    # -----------------------------------------------------
     existing_name_of_organisation = db.query(Client).filter(
-        Client.name_of_organisation.ilike(f"%{client_data.name_of_organisation}%")
+        Client.name_of_organisation.ilike(client_data.name_of_organisation),
+        Client.is_deleted == False,
     ).first()
+
+    if existing_name_of_organisation:
+        raise HTTPException(
+            status_code=400,
+            detail="Client with that organisation name already exists"
+        )
 
     existing_phone_number = db.query(Client).filter(
-        Client.phone_number.ilike(f"%{client_data.phone_number}%")
+        Client.phone_number.ilike(client_data.phone_number),
+        Client.is_deleted == False,
     ).first()
+
+    if existing_phone_number:
+        raise HTTPException(
+            status_code=400,
+            detail="Client with that phone number already exists"
+        )
 
     existing_email = db.query(Client).filter(
-        Client.email.ilike(f"%{client_data.email}%")
+        Client.email.ilike(client_data.email),
+        Client.is_deleted == False,
     ).first()
 
-    if existing_email is not None:
+    if existing_email:
         raise HTTPException(
             status_code=400,
             detail="Client with that email already exists"
         )
 
-    if existing_name_of_organisation is not None:
-        raise HTTPException(
-            status_code=400,
-            detail="Client with that name of organisation already exists"
-        )
-    
-    if existing_phone_number is not None:
-        raise HTTPException(
-            status_code=400,
-            detail="Client with that phone number already exists"
-        )
-    
+    # -----------------------------------------------------
+    # 3. Create Client (only commit once)
+    # -----------------------------------------------------
     try:
         client = Client(
-        name_of_organisation = client_data.name_of_organisation,
-        country = client_data.country,
-        contact_person= client_data.first_name + ' ' + client_data.last_name,
-        phone_number= client_data.phone_number,
-        email = client_data.email,
-    )
+            name_of_organisation=client_data.name_of_organisation,
+            country=client_data.country,
+            contact_person=f"{client_data.first_name} {client_data.last_name}",
+            phone_number=client_data.phone_number,
+            email=client_data.email,
+        )
+
         db.add(client)
         db.commit()
         db.refresh(client)
+
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to create new client due to error: {str(e)}")
+        logger.error(f"Failed to create client: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create client")
 
+    # -----------------------------------------------------
+    # 4. Create Org Admin User for the New Client
+    # -----------------------------------------------------
 
+    plain_password = "12345678"  # replace with generate_password()
 
-        # Auto-generate secure password
-    plain_password = "12345678" #generate_password()
-
-    # Hash it before storing
     hashed_password = hash_password(plain_password)
 
-    new_user = None
     try:
         new_user = ClientUser(
-            client_id = client.id,
-            first_name = client_data.first_name,
-            last_name = client_data.last_name,
-            phone_number = client_data.phone_number,
-            is_active=False,
-            email= client_data.email,
+            client_id=client.id,
+            first_name=client_data.first_name,
+            last_name=client_data.last_name,
+            phone_number=client_data.phone_number,
+            email=client_data.email,
             hashed_password=hashed_password,
-            role = UserRole.org_admin
+            is_active=False,
+            role=UserRole.org_admin,
         )
+
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to create new user due to error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create user"
-        )
+        logger.error(f"Failed to create client admin user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create user")
+
+    # -----------------------------------------------------
+    # Return Response
+    # -----------------------------------------------------
 
     return UserClientCreateOut(
         first_name=new_user.first_name,
         last_name=new_user.last_name,
         phone_number=new_user.phone_number,
         email=new_user.email,
-        role = new_user.role,
+        role=new_user.role,
         name_of_organisation=client.name_of_organisation,
         country=client.country,
-        plain_password=plain_password
+        plain_password=plain_password,
     )
+
 
 #------------------------------ 
 # get all clients 
@@ -178,7 +188,7 @@ def get_all_clients(
         db: Session = Depends(get_db),
     ):
     
-    query = db.query(Client)
+    query = db.query(Client).filter(Client.is_deleted == False)
 
     # Filters
     if filters.name:
@@ -198,24 +208,6 @@ def get_all_clients(
     logger.info(f"User {current_user['id']} accessed all clients")
 
     return paginate_queryset(query, page, page_size, base_url, ClientOut)
-
-
-# # --------------------------------------
-# # Search clients by name of organisation
-# # --------------------------------------
-# @router.get("/search/", response_model=PaginatedResponse)
-# def search_users(query: str,
-#                  current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer, UserRole.data_clerk])),
-#                  db: Session = Depends(get_db)):
-#     users = db.query(Client).filter(
-#         (Client.first_name.ilike(f"%{query}%")) |
-#         (Client.last_name.ilike(f"%{query}%")) |
-#         (Client.email.ilike(f"%{query}%")) |
-#         (Client.phone_number.ilike(f"%{query}%"))
-#     ).all()
-#     logger.info(f"User {current_user['id']} accessed user search with query '{query}'")
-#     return users
-
 
 
 #------------------------ 
@@ -291,6 +283,65 @@ def update_client(
     )
 
 
+#--------------------------
+# Delete client (soft delete)
+#--------------------------
+@router.delete(
+    "/clients/{client_id}",
+    status_code=200,
+    summary="Soft delete a client",
+)
+def delete_client(
+    client_id: uuid.UUID,
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db)
+):
+    # Fetch client
+    client = db.query(Client).filter(Client.id == client_id).first()
+
+    if client is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Client not found"
+        )
+
+    # Org Admins can ONLY delete their own client
+    if current_user["role"] == UserRole.org_admin:
+        if str(current_user["client_id"]) != str(client.id):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot delete another organisation"
+            )
+
+    # Already deleted?
+    if client.is_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="Client already deleted"
+        )
+
+    # Soft delete
+    try:
+        client.is_deleted = True
+        db.commit()
+        db.refresh(client)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete client {client_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete client")
+
+    logger.info(f"User {current_user['id']} deleted client {client_id}")
+
+    return {"message": "Client deleted successfully", "client_id": str(client_id)}
+
+
+
+#----------------------------------------------------------------------------------------------------#
+#----------------------------------- Client User Endpoints ----------------------------------#
+#----------------------------------------------------------------------------------------------------#
+
+
+
 # ---------------------- 
 # Client User Create Collaborators 
 # ---------------------- 
@@ -298,78 +349,108 @@ def update_client(
     "/client-users/",
     status_code=status.HTTP_200_OK,
     response_model=UserClientCollaboratorOut,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Forbidden"},
-        400: {"description": "Invalid input data"}, 
-    },
-    summary="Organisation Admin can create collaborators who are users in their org",
+    summary="Organisation Admin or Super Admin can create collaborators",
 )
 def create_collaborator(
-    client_data:UserClientCollaboratorCreate,
-    current_user: User = Depends(require_role([UserRole.super_admin])), 
-    db: Session = Depends(get_db)    
-)->UserClientCollaboratorOut:
-    
-    # search for the client if exists
-    client = None
-    client_user = None
+    client_data: UserClientCollaboratorCreate,
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db),
+):
 
-    client = db.query(Client).filter(client_data.client_id == Client.id).first() 
+    # ----------------------------------------------------
+    # 1. Check client exists and is not deleted
+    # ----------------------------------------------------
+    client = (
+        db.query(Client)
+        .filter(
+            Client.id == client_data.client_id,
+            Client.is_deleted == False
+        )
+        .first()
+    )
 
     if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found"
-        )
-    
-    # check if user already exists
-    client_user = db.query(ClientUser).filter(
-        (ClientUser.phone_number.ilike(f"%{client_data.phone_number}%")) |
-        (ClientUser.email.ilike(f"%{client_data.email}%"))
+        raise HTTPException(404, "Client not found")
+
+    # ----------------------------------------------------
+    # 2. Org admin can ONLY create users for their own org
+    # ----------------------------------------------------
+    if current_user["role"] == UserRole.org_admin:
+        if str(current_user["client_id"]) != str(client.id):
+            raise HTTPException(
+                403,
+                "You cannot create users for another organisation"
+            )
+
+    # ----------------------------------------------------
+    # 3. Check if user exists EXACT match (not ilike)
+    # ----------------------------------------------------
+    existing_user = db.query(ClientUser).filter(
+        (ClientUser.email == client_data.email) |
+        (ClientUser.phone_number == client_data.phone_number)
     ).first()
 
-    if bool(client_user):
-        raise HTTPException(
-            status_code= status.HTTP_400_BAD_REQUEST,
-            detail="User already exists"
-        )
-    
-    plain_password = generate_password()
+    if existing_user:
+        raise HTTPException(400, "A user with that email or phone number already exists")
 
+    # ----------------------------------------------------
+    # 4. Validate role (prevent privilege escalation)
+    # ----------------------------------------------------
+    if client_data.role in [UserRole.super_admin]:
+        raise HTTPException(
+            400,
+            "Collaborators cannot be assigned a super admin role"
+        )
+
+    # org_admin must not create another org_admin unless allowed
+    if current_user["role"] == UserRole.org_admin:
+        if client_data.role == UserRole.org_admin:
+            raise HTTPException(
+                403,
+                "Org admins cannot create other org admins"
+            )
+
+    # ----------------------------------------------------
+    # 5. Create user
+    # ----------------------------------------------------
+    plain_password = generate_password()
     hashed_password = hash_password(plain_password)
 
-    # create the user
     try:
         new_client_user = ClientUser(
-            client_id= client_data.client_id,
-            first_name= client_data.first_name,
+            client_id=client.id,
+            first_name=client_data.first_name,
             last_name=client_data.last_name,
             phone_number=client_data.phone_number,
-            hashed_password = hashed_password,
+            email=client_data.email,
+            hashed_password=hashed_password,
+            is_active=False,
             role=client_data.role,
-            is_active = False,
-            email=client_data.email
         )
+
         db.add(new_client_user)
         db.commit()
         db.refresh(new_client_user)
+
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to create client user {client.id}: {str(e)}")
+        logger.error(f"Failed to create client user for client {client.id}: {str(e)}")
+        raise HTTPException(500, "Failed to create collaborator")
 
+    # ----------------------------------------------------
+    # 6. Return output
+    # ----------------------------------------------------
     return UserClientCollaboratorOut(
-        id=new_client_user.id, 
-        client_id=new_client_user.client_id, 
-        first_name=new_client_user.first_name, 
-        last_name=new_client_user.last_name, 
-        phone_number=new_client_user.phone_number, 
-        email=new_client_user.email, 
-        role=new_client_user.role, 
-        is_active=new_client_user.is_active, 
+        id=new_client_user.id,
+        client_id=new_client_user.client_id,
+        first_name=new_client_user.first_name,
+        last_name=new_client_user.last_name,
+        phone_number=new_client_user.phone_number,
+        email=new_client_user.email,
+        role=new_client_user.role,
+        is_active=new_client_user.is_active,
         plain_password=plain_password
     )
-
 
 
 # ------------------------ 
@@ -377,19 +458,26 @@ def create_collaborator(
 # ------------------------
 @router.get(
     "/client-users/",
-    response_model=PaginatedResponse
+    response_model=PaginatedResponse,
+    summary="Get all client users (with filtering and sorting)"
 )
 def get_all_client_users(
-        request: Request,
-        filters: ClientUserFilters = Depends(),
-        page: int = 1,
-        page_size: int = 10,
-        current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
-        db: Session = Depends(get_db),
-    ):
+    request: Request,
+    filters: ClientUserFilters = Depends(),
+    page: int = 1,
+    page_size: int = 10,
+    sort: str = "desc",  # NEW: sorting based on created_at
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db),
+):
 
     query = db.query(ClientUser)
 
+    # Org admins can ONLY see users in their own org
+    if current_user["role"] == UserRole.org_admin:
+        query = query.filter(ClientUser.client_id == current_user["client_id"])
+
+    # Apply filters
     if filters.client_id:
         query = query.filter(ClientUser.client_id == filters.client_id)
 
@@ -399,12 +487,17 @@ def get_all_client_users(
     if filters.is_active is not None:
         query = query.filter(ClientUser.is_active == filters.is_active)
 
+    # Sorting
+    if sort.lower() == "asc":
+        query = query.order_by(ClientUser.created_at.asc())
+    else:
+        query = query.order_by(ClientUser.created_at.desc())
+
     base_url = str(request.url).split("?")[0]
 
-    logger.info(f"User {current_user['id']} accessed all client users")
+    logger.info(f"User {current_user['id']} accessed client users list")
 
     return paginate_queryset(query, page, page_size, base_url, UserClientOut)
-
 
 
 
@@ -412,91 +505,121 @@ def get_all_client_users(
 # update client User details 
 # ---------------------------
 @router.patch(
-        "/client-users/",
-        response_model=UserClientOut,
-        status_code=status.HTTP_200_OK,
-        responses={
-            404: {"description": "Client not found"},
-            403: {"description": "You do not have permission to access this resource"},
-            400: {"description": "invalid input"},  
-        },
-            summary="Update Client user",
-            description="Update client user details",
-    )
+    "/client-users/",
+    response_model=UserClientOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update Client User",
+    description="Update client user details based on ID or phone number"
+)
 def update_client_user(
-    client_user_data:UserClientUpdate,
-    client_user_id:Optional[uuid.UUID] = None,
+    client_user_data: UserClientUpdate,
+    client_user_id: Optional[uuid.UUID] = None,
     client_user_phone_number: Optional[str] = None,
-    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin, UserRole.reviewer, UserRole.data_clerk, UserRole.org_user])), 
+    current_user=Depends(require_role([
+        UserRole.super_admin, 
+        UserRole.org_admin, 
+        UserRole.reviewer, 
+        UserRole.data_clerk, 
+        UserRole.org_user
+    ])),
     db: Session = Depends(get_db)
 ):
     """
-    super admins can update any client user details
-    org admins can update any client user details within their org
-    reviewers, data clerks and org users can update their own details only
+    Role Permissions:
+    - super_admin: update any client user
+    - org_admin: update any user within their org
+    - reviewer, data_clerk, org_user: can ONLY update their own profile
     """
-    # validate input
-    if(client_user_id is None and client_user_phone_number is None) or (client_user_id is not None and client_user_phone_number is not None):
+
+    # Must supply exactly one identifier
+    if (client_user_id is None and client_user_phone_number is None) or \
+       (client_user_id is not None and client_user_phone_number is not None):
         raise HTTPException(
-            status_code= status.HTTP_400_BAD_REQUEST,
-            detail="Exactly one of client id or name of organisation must be provided"
+            status_code=400,
+            detail="Provide exactly one of client_user_id or client_user_phone_number"
         )
 
-    # check for name oforganisation if exists in db
-    client_user = None
+    # Fetch the user
     if client_user_id:
-        client_user = db.query(ClientUser).filter(
-            ClientUser.id == client_user_id
-        ).first()
+        client_user = db.query(ClientUser).filter(ClientUser.id == client_user_id).first()
     else:
         client_user = db.query(ClientUser).filter(
             ClientUser.phone_number.ilike(f"%{client_user_phone_number}%")
         ).first()
 
-    if client_user is  None:
+    if not client_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client does not exists"
-        )
-    
-    if client_user.id != client_user_id and current_user['role'] not in [UserRole.super_admin, UserRole.org_admin]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to update this user"
+            status_code=404,
+            detail="Client user not found"
         )
 
-    # Validate fields to be update
-    allowed_fields = {'first_name','last_name', 'phone_number', 'email'}
+    # Role-based access control
+    if current_user["role"] not in [UserRole.super_admin, UserRole.org_admin]:
+
+        # Regular users can only update themselves
+        if str(current_user["id"]) != str(client_user.id):
+            raise HTTPException(
+                status_code=403,
+                detail="You are not allowed to update this user"
+            )
+
+    # org_admin can update ONLY users in their org
+    if current_user["role"] == UserRole.org_admin:
+        if str(current_user["client_id"]) != str(client_user.client_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot update users outside your organisation"
+            )
+
+    # Fields allowed for update
+    allowed_fields = {"first_name", "last_name", "phone_number", "email"}
     update_data = client_user_data.model_dump(exclude_unset=True)
+
     invalid_fields = set(update_data.keys()) - allowed_fields
     if invalid_fields:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=f"Cannot update restricted fields: {invalid_fields}"
         )
-    
-    # update fields dynamically
+
+    # Uniqueness validation
+    if "phone_number" in update_data:
+        exists = db.query(ClientUser).filter(
+            ClientUser.phone_number == update_data["phone_number"],
+            ClientUser.id != client_user.id
+        ).first()
+        if exists:
+            raise HTTPException(400, "Phone number already exists")
+
+    if "email" in update_data:
+        exists = db.query(ClientUser).filter(
+            ClientUser.email == update_data["email"],
+            ClientUser.id != client_user.id
+        ).first()
+        if exists:
+            raise HTTPException(400, "Email already exists")
+
+    # Apply updates
+    for field, value in update_data.items():
+        setattr(client_user, field, value)
+
     try:
-        for field, value in update_data.items():
-            setattr(client_user, field, value)
-            db.commit()
-            db.refresh(client_user)
+        db.commit()
+        db.refresh(client_user)
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to update user {client_user.id}: {str(e)}")
-    
+        logger.error(f"Failed to update client user {client_user.id}: {str(e)}")
+        raise HTTPException(500, "Failed to update user")
 
-    identifier = client_user_id if client_user_id else client_user_phone_number
-    logger.info(f"User {current_user['id']} updated client details for the client {identifier}")
+    logger.info(f"User {current_user['id']} updated user {client_user.id}")
 
     return UserClientOut(
-        id=client_user.id, 
-        first_name=client_user.first_name, 
-        last_name=client_user.last_name, 
-        phone_number=client_user.phone_number, 
-        email=client_user.email  
+        id=client_user.id,
+        first_name=client_user.first_name,
+        last_name=client_user.last_name,
+        phone_number=client_user.phone_number,
+        email=client_user.email,
     )
-
 
 
 
@@ -504,22 +627,24 @@ def update_client_user(
 # update client User passwords 
 # ----------------------------
 @router.patch(
-        "/client-users/update-password/",
-        response_model=UserClientOut,
-        status_code=status.HTTP_200_OK,
-        responses={
-            404: {"description": "Client not found"},
-            403: {"description": "You do not have permission to access this resource"},
-            400: {"description": "invalid input"},  
-        },
-            summary="Update Client user password",
-            description="Update client user password",
-    )
-def update_client_user(
-    client_user_data:UserClientUpdatePassword,
-    client_user_id:Optional[uuid.UUID] = None,
+    "/client-users/update-password/",
+    response_model=UserClientOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update Client user password",
+    description="Update client user password",
+    dependencies=[Depends(RateLimiter(times=5, seconds=3600))]  # 5 requests/hour
+)
+def update_client_user_password(
+    client_user_data: UserClientUpdatePassword,
+    client_user_id: Optional[uuid.UUID] = None,
     client_user_phone_number: Optional[str] = None,
-    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin, UserRole.reviewer, UserRole.data_clerk, UserRole.org_user])), 
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
     db: Session = Depends(get_db)
 ):
     """
@@ -527,68 +652,219 @@ def update_client_user(
     org admins can update any client user password within their org
     reviewers, data clerks and org users can update their own password only
     """
-    # validate input
-    if(client_user_id is None and client_user_phone_number is None) or (client_user_id is not None and client_user_phone_number is not None):
+
+    # Validating input: must provide exactly one identifier
+    if (client_user_id is None and client_user_phone_number is None) or \
+       (client_user_id is not None and client_user_phone_number is not None):
         raise HTTPException(
-            status_code= status.HTTP_400_BAD_REQUEST,
-            detail="Exactly one of client id or name of organisation must be provided"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Exactly one of client_user_id or phone_number must be provided"
         )
 
-    # check for name oforganisation if exists in db
+    # Fetch target user
     client_user = None
     if client_user_id:
-        client_user = db.query(ClientUser).filter(
-            ClientUser.id == client_user_id
-        ).first()
+        client_user = db.query(ClientUser).filter(ClientUser.id == client_user_id).first()
     else:
         client_user = db.query(ClientUser).filter(
             ClientUser.phone_number.ilike(f"%{client_user_phone_number}%")
         ).first()
 
-    if client_user is  None:
+    if not client_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client does not exists"
-        )
-    
-    if client_user.id != client_user_id and current_user['role'] not in [UserRole.super_admin, UserRole.org_admin]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to update this user"
+            detail="Client user does not exist"
         )
 
-    # Validate fields to be update
+    # Permission checks
+    if current_user['role'] not in [UserRole.super_admin, UserRole.org_admin]:
+        # Regular users can update only their own password
+        if str(current_user['id']) != str(client_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update another user's password"
+            )
+    else:
+        # Org admin must stay in their own org
+        if current_user['role'] == UserRole.org_admin:
+            if str(current_user["client_id"]) != str(client_user.client_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot modify a user outside your organisation"
+                )
+
+    # Extract passwords
     password = client_user_data.password
     confirm_password = client_user_data.confirm_password
 
+    # Validation: match
     if password != confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Passwords do not match"
         )
-    if len(password) < 4:
+
+    # Validation: Medium strength (Rule B)
+    # Min 8 characters and at least one number
+    if len(password) < 8 or not any(ch.isdigit() for ch in password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 4 characters long"
+            detail="Password must be at least 8 characters long and contain at least one number"
         )
+
+    # Hash new password
     hashed_password = hash_password(password)
 
-    # update password
+    # Update password
     try:
         client_user.hashed_password = hashed_password
         db.commit()
         db.refresh(client_user)
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to update user {client_user.id}: {str(e)}")
+        logger.error(f"Failed to update client user password {client_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update password"
+        )
 
-    identifier = client_user_id if client_user_id else client_user_phone_number
-    logger.info(f"User {current_user['id']} updated client details for the client {identifier}")
+    # Audit Log
+    logger.info(
+        f"Password updated for user {client_user.id} by user {current_user['id']} (role: {current_user['role']})"
+    )
 
     return UserClientOut(
-        id=client_user.id, 
-        first_name=client_user.first_name, 
-        last_name=client_user.last_name, 
-        phone_number=client_user.phone_number, 
-        email=client_user.email  
+        id=client_user.id,
+        first_name=client_user.first_name,
+        last_name=client_user.last_name,
+        phone_number=client_user.phone_number,
+        email=client_user.email
     )
+
+#--------------------------------
+# Delete client user (Soft delete)
+#--------------------------------                             
+@router.delete(
+    "/client-users/{user_id}",
+    status_code=200,
+    summary="Delete a client user"
+)
+def delete_client_user(
+    user_id: uuid.UUID,
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db)
+):
+    client_user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
+
+    if not client_user:
+        raise HTTPException(404, "Client user not found")
+
+    # org_admin must only delete users in their own org
+    if current_user["role"] == UserRole.org_admin:
+        if str(client_user.client_id) != str(current_user["client_id"]):
+            raise HTTPException(403, "You cannot delete users outside your organisation")
+
+    try:
+        client_user.is_deleted = True
+        db.commit()
+        db.refresh(client_user)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete client user {user_id}: {e}")
+        raise HTTPException(500, "Failed to delete user")
+
+    logger.info(f"User {current_user['id']} deleted client user {user_id}")
+
+    return {"message": "User deleted successfully"}
+
+
+#----------------------------- 
+# Activate / Deactivate client user
+#-----------------------------
+@router.patch(
+    "/client-users/{user_id}/status",
+    summary="Activate or deactivate a client user",
+    status_code=200
+)
+def update_user_status(
+    user_id: uuid.UUID,
+    is_active: bool,
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db)
+):
+    client_user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
+
+    if not client_user:
+        raise HTTPException(404, "Client user not found")
+
+    # org_admin may only update users in their org
+    if current_user["role"] == UserRole.org_admin:
+        if str(client_user.client_id) != str(current_user["client_id"]):
+            raise HTTPException(403, "You cannot update users outside your organisation")
+
+    try:
+        client_user.is_active = is_active
+        db.commit()
+        db.refresh(client_user)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update status for user {user_id}: {e}")
+        raise HTTPException(500, "Failed to update status")
+
+    logger.info(
+        f"User {current_user['id']} set user {user_id} active={is_active}"
+    )
+
+    return {
+        "id": client_user.id,
+        "is_active": client_user.is_active,
+        "message": "User status updated successfully"
+    }
+
+
+#----------------------------- 
+# Promote / Demote client user
+#-----------------------------
+@router.patch(
+    "/client-users/{user_id}/role",
+    summary="Promote or demote a client user",
+    status_code=200
+)
+def update_user_role(
+    user_id: uuid.UUID,
+    new_role: UserRole,
+    current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
+    db: Session = Depends(get_db)
+):
+    client_user = db.query(ClientUser).filter(ClientUser.id == user_id).first()
+
+    if not client_user:
+        raise HTTPException(404, "Client user not found")
+
+    # org_admin may only manage users in their org
+    if current_user["role"] == UserRole.org_admin:
+        if str(client_user.client_id) != str(current_user["client_id"]):
+            raise HTTPException(403, "You cannot update users outside your organisation")
+
+        # org_admin cannot assign super_admin role
+        if new_role == UserRole.super_admin:
+            raise HTTPException(403, "You cannot assign super admin role")
+
+    try:
+        client_user.role = new_role
+        db.commit()
+        db.refresh(client_user)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to change role for user {user_id}: {e}")
+        raise HTTPException(500, "Failed to change role")
+
+    logger.info(
+        f"User {current_user['id']} changed role for user {user_id} to {new_role}"
+    )
+
+    return {
+        "id": client_user.id,
+        "role": client_user.role,
+        "message": "User role updated successfully"
+    }

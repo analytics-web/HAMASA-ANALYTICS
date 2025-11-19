@@ -2,50 +2,54 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # --- pip caching ---
-    - name: Cache pip
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      - name: Add SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
 
-    - name: Add SSH key
-      run: |
-        echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
-        chmod 600 key.pem
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
+          set -e
 
-    - name: Deploy to EC2
-      run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
-          cd /var/www/HAMASA-ANALYTICS &&
+          cd /var/www/HAMASA-ANALYTICS
+
+          echo '➡️ Loading .env file'
+          set -a
+          source .env
+          set +a
+
+          echo '➡️ Running database backup before migration'
+          bash backup_db.sh
 
           echo '➡️ Pulling latest code'
-          git fetch --all &&
-          git reset --hard origin/main &&
+          git fetch --all
+          git reset --hard origin/main
 
           echo '➡️ Updating dependencies'
-          source fast-env/bin/activate &&
-          pip install -r requirements.txt --upgrade --no-cache-dir &&
+          source fast-env/bin/activate
+          pip install -r requirements.txt --upgrade --no-cache-dir
 
-          echo '➡️ Running database migrations'
-          if [ -f alembic.ini ]; then
-            fast-env/bin/alembic upgrade head;
+          echo '➡️ Running Alembic migrations'
+          if fast-env/bin/alembic upgrade head; then
+            echo '✅ Migration succeeded'
           else
-            echo 'No Alembic detected, skipping migrations';
-          fi &&
+            echo '❌ Migration failed — restoring latest backup'
+            bash restore_latest_backup.sh
+            exit 1
+          fi
 
-          echo '➡️ Zero-downtime reload'
-          sudo systemctl reload hamasa.service
-        "
+
+          echo '➡️ Restarting service'
+          sudo systemctl restart hamasa.service
+          "

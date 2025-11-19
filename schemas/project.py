@@ -1,8 +1,13 @@
+import uuid
 from pydantic import BaseModel, UUID4, Field
 from typing import List, Optional
 
+from models.enums import ProjectStatus
+
 class ProjectCategoryBase(BaseModel):
     category: str
+    description: Optional[str] = None
+
 
 class ProjectCategoryCreate(ProjectCategoryBase):
     pass
@@ -13,11 +18,21 @@ class ProjectCategoryOut(ProjectCategoryBase):
         from_attributes = True
 
 
+class CategoryFilters(BaseModel):
+    search: Optional[str] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"  # asc or desc
+
+class ProjectCategoryUpdate(BaseModel):
+    category: Optional[str] = None
+    description: Optional[str] = None
+
+
 class ProjectThematicAreaBase(BaseModel):
     area: str
-    title: Optional[str] = None
+    title: str
     description: Optional[str] = None
-    monitoring_objective: Optional[str] = None
+    monitoring_objectives: List[str] 
 
 class ProjectThematicAreaCreate(ProjectThematicAreaBase):
     pass
@@ -26,6 +41,20 @@ class ProjectThematicAreaOut(ProjectThematicAreaBase):
     id: UUID4
     class Config:
         from_attributes = True
+
+class ProjectThematicAreaUpdate(BaseModel):
+    area: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    monitoring_objectives: Optional[List[str]] = None
+
+class ThematicAreaFilters(BaseModel):
+    search: Optional[str] = None          # search in area/title/description
+    sort_by: Optional[str] = "created_at" # default sort field
+    sort_order: Optional[str] = "desc"    # asc or desc
+
+
+
 
 
 
@@ -38,6 +67,18 @@ class MediaCategoryOut(MediaCategoryBase):
     class Config:
         from_attributes = True
 
+class MediaCategoryFilters(BaseModel):
+    search: Optional[str] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"
+
+
+class MediaCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+
 
 class MediaSourceBase(BaseModel):
     name: str
@@ -48,31 +89,103 @@ class MediaSourceOut(MediaSourceBase):
     class Config:
         from_attributes = True
 
+class MediaSourceFilters(BaseModel):
+    search: Optional[str] = None
+    category_id: Optional[uuid.UUID] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"
+
+
+class MediaSourceUpdate(BaseModel):
+    name: Optional[str] = None
+    category_id: Optional[UUID4] = None
+
+
+
+
+
+
+
+
 
 
 class ReportAvenueBase(BaseModel):
     name: str
+
+class ReportAvenueCreate(ReportAvenueBase):
+    pass
 
 class ReportAvenueOut(ReportAvenueBase):
     id: UUID4
     class Config:
         from_attributes = True
 
+class ReportAvenueFilters(BaseModel):
+    search: Optional[str] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"
+
+class ReportAvenueUpdate(BaseModel):
+    name: Optional[str] = None
+
+
+
+
+
+
+
+
 class ReportTimeBase(BaseModel):
     name: str
+
+class ReportTimeCreate(ReportTimeBase):
+    pass
 
 class ReportTimeOut(ReportTimeBase):
     id: UUID4
     class Config:
         from_attributes = True
 
+class ReportTimeFilters(BaseModel):
+    search: Optional[str] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"
+
+class ReportTimeUpdate(BaseModel):
+    name: Optional[str] = None
+
+
+
+
+
+
+
+
 class ReportConsultationBase(BaseModel):
     name: str
+
+class ReportConsultationCreate(ReportConsultationBase):
+    pass
 
 class ReportConsultationOut(ReportConsultationBase):
     id: UUID4
     class Config:
         from_attributes = True
+
+class ReportConsultationFilters(BaseModel):
+    search: Optional[str] = None
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"
+
+class ReportConsultationUpdate(BaseModel):
+    name: Optional[str] = None
+
+
+
+
+
+
+
 
 
 
@@ -107,7 +220,7 @@ class ProjectCreate(BaseModel):
     description: str | None
     client_id: UUID4
     category_ids: list[UUID4] = []
-    thematic_areas: list[ProjectThematicAreaCreate] = []  # Allow creating new thematic areas
+    thematic_areas: list[ProjectThematicAreaCreate] = []  
     collaborator_ids: list[UUID4] = []
     media_source_ids: list[UUID4] = []
     report_avenue_ids: list[UUID4] = []
@@ -139,6 +252,13 @@ class ProjectOut(ProjectBase):
 
     class Config:
         from_attributes = True
+
+
+class ProjectFilters(BaseModel):
+    title: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+    status: Optional[ProjectStatus] = None
+    sort: Optional[str] = "desc"  # asc | desc
 
 
 

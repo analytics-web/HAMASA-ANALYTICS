@@ -4,6 +4,8 @@ from sqlalchemy.orm import relationship
 from models.base import Base
 from models.enums import ProjectStatus
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.dialects.postgresql import JSONB
+
 
 # Junction tables
 project_category = Table(
@@ -137,7 +139,10 @@ class ProjectThematicAreas(Base):
     area = Column(String, nullable=False)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    monitoring_objective = Column(String, nullable=True)
+    monitoring_objective = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     projects = relationship(
         "Project",
@@ -152,6 +157,10 @@ class ProjectCategory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category = Column(String, nullable=False)
+    description= Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     projects = relationship(
         "Project",
@@ -166,6 +175,10 @@ class MediaCategory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+    description= Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     media_sources = relationship("MediaSource", back_populates="category")
 
@@ -177,6 +190,9 @@ class MediaSource(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     category_id = Column(UUID(as_uuid=True), ForeignKey("media_categories.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     category = relationship("MediaCategory", back_populates="media_sources")
     projects = relationship("ProjectMediaSources", back_populates="media_source")
@@ -189,6 +205,9 @@ class ProjectMediaSources(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     media_source_id = Column(UUID(as_uuid=True), ForeignKey("media_sources.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     project = relationship("Project", back_populates="media_sources_link")
     media_source = relationship("MediaSource", back_populates="projects")
@@ -201,6 +220,9 @@ class ReportAvenue(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, unique=True, nullable=False)  # e.g., 'web', 'email', 'mobile'
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     projects = relationship(
         "Project",
@@ -215,6 +237,9 @@ class ReportTime(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, unique=True, nullable=False)  # e.g., 'daily', 'monthly', 'yearly'
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     projects = relationship(
         "Project",
@@ -229,6 +254,9 @@ class ReportConsultation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, unique=True, nullable=False)  # e.g., 'on-demand', 'scheduled', etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
 
     projects = relationship(
         "Project",

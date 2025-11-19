@@ -28,6 +28,7 @@ class ClientUser(Base):
     is_active = Column(Boolean, default=True)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=True)  # optional: client-specific roles
+    is_deleted = Column(Boolean, default=False)
 
     # Relationship
     client = relationship("Client", back_populates="users")
