@@ -83,16 +83,26 @@ def createClient(
         Client.phone_number.ilike(f"%{client_data.phone_number}%")
     ).first()
 
+    existing_email = db.query(Client).filter(
+        Client.email.ilike(f"%{client_data.email}%")
+    ).first()
+
+    if existing_email is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Client with that email already exists"
+        )
+
     if existing_name_of_organisation is not None:
         raise HTTPException(
             status_code=400,
-            detail="Client already exists"
+            detail="Client with that name of organisation already exists"
         )
     
     if existing_phone_number is not None:
         raise HTTPException(
             status_code=400,
-            detail="Client already exists"
+            detail="Client with that phone number already exists"
         )
     
     try:
@@ -149,7 +159,6 @@ def createClient(
         role = new_user.role,
         name_of_organisation=client.name_of_organisation,
         country=client.country,
-        sector=client.sector,
         plain_password=plain_password
     )
 
@@ -184,6 +193,22 @@ def get_all_clients(
 
     return paginate_queryset(query, page, page_size, base_url, ClientOut)
 
+
+# --------------------------------------
+# Search clients by name of organisation
+# --------------------------------------
+@router.get("/search/", response_model=PaginatedResponse)
+def search_users(query: str,
+                 current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer, UserRole.data_clerk])),
+                 db: Session = Depends(get_db)):
+    users = db.query(Client).filter(
+        (Client.first_name.ilike(f"%{query}%")) |
+        (Client.last_name.ilike(f"%{query}%")) |
+        (Client.email.ilike(f"%{query}%")) |
+        (Client.phone_number.ilike(f"%{query}%"))
+    ).all()
+    logger.info(f"User {current_user['id']} accessed user search with query '{query}'")
+    return users
 
 
 
