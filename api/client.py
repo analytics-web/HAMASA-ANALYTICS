@@ -99,7 +99,6 @@ def createClient(
         client = Client(
         name_of_organisation = client_data.name_of_organisation,
         country = client_data.country,
-        sector = client_data.sector,
         contact_person= client_data.first_name + ' ' + client_data.last_name,
         phone_number= client_data.phone_number,
         email = client_data.email,
@@ -114,7 +113,7 @@ def createClient(
 
 
         # Auto-generate secure password
-    plain_password = generate_password()
+    plain_password = "12345678" #generate_password()
 
     # Hash it before storing
     hashed_password = hash_password(plain_password)
@@ -178,8 +177,6 @@ def get_all_clients(
     if filters.country:
         query = query.filter(Client.country.ilike(f"%{filters.country}%"))
 
-    if filters.sector:
-        query = query.filter(Client.sector.ilike(f"%{filters.sector}%"))
 
     base_url = str(request.url).split("?")[0]
 
@@ -241,7 +238,7 @@ def UpdateClient(
         )
 
     # Validate fields to be update
-    allowed_fields = {'contact_person', 'phone_number', 'email', 'country', 'name_of_organisation', 'sector'}
+    allowed_fields = {'contact_person', 'phone_number', 'email', 'country', 'name_of_organisation'}
     update_data = client_data.model_dump(exclude_unset=True)
     invalid_fields = set(update_data.keys()) - allowed_fields
     if invalid_fields:
@@ -270,7 +267,6 @@ def UpdateClient(
         id=client.id,
         name_of_organisation=client.name_of_organisation,
         country=client.country,
-        sector=client.sector,
         first_name=first_name,
         last_name=last_name,
         phone_number=client.phone_number,

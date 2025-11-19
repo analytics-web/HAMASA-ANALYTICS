@@ -21,8 +21,7 @@ class Gender(str, Enum):
 class CLientOut(BaseException):
     id:UUID
     name_of_organisation:Optional[str]
-    country:str
-    sector:str
+    country:Optional[str] = "Tanzania"    
     contact_person:str
     email:EmailStr
 
@@ -54,8 +53,7 @@ class UserClientCreate(BaseModel):
     phone_number: str
     email: EmailStr
     name_of_organisation: str
-    country: str
-    sector: str
+    country: Optional[str] = "Tanzania"
     plain_password: Optional[str] = None
     role:UserRole = UserRole.org_admin
 
@@ -88,7 +86,6 @@ class UserClientCreateOut(BaseModel):
     email: EmailStr
     name_of_organisation: Optional[str]
     country: Optional[str]
-    sector: str
     plain_password: str
     role:UserRole = UserRole.org_admin
 

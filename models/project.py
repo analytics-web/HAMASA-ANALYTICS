@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import UUID, Enum, String, Table, Column, ForeignKey
+from sqlalchemy import UUID, Boolean, DateTime, Enum, String, Table, Column, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models.base import Base
 from models.enums import ProjectStatus
@@ -68,6 +68,9 @@ class Project(Base):
     description = Column(String(500), nullable=False)
     client_id = Column(UUID(as_uuid=True), ForeignKey("client.id", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(ProjectStatus), default=ProjectStatus.draft, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)   
 
     # Relationship to Client
     client = relationship("Client", back_populates="projects")

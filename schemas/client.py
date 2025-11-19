@@ -9,7 +9,6 @@ from uuid import UUID
 class ClientBase(BaseModel):
     name_of_organisation: str
     country:str
-    sector:str
     first_name:str
     last_name:str
     phone_number:str
@@ -22,7 +21,6 @@ class ClientOut(BaseModel):
     id: UUID
     name_of_organisation: str
     country: str
-    sector: str
     phone_number: str
     email: EmailStr
 
@@ -49,7 +47,6 @@ class UserClientOut(BaseModel):
 class ClientCreate(ClientBase):
     name_of_organisation: str
     country:str
-    sector:str
     first_name:str
     last_name:str
     phone_number:str
@@ -59,7 +56,6 @@ class ClientCreate(ClientBase):
 class ClientUpdate(BaseModel):
     name_of_organisation: Optional[str] = None
     country: Optional[str] = None
-    sector: Optional[str] = None
     first_name: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -68,7 +64,6 @@ class ClientUpdate(BaseModel):
 class ClientFilters(BaseModel):
     name: Optional[str] = None
     country: Optional[str] = None
-    sector: Optional[str] = None
 
 
 class ClientUserFilters(BaseModel):

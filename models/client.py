@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Date, Boolean, ForeignKey, Table
+from click import DateTime
+from sqlalchemy import Column, String, Date, Boolean, ForeignKey, Table, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, ENUM
 from sqlalchemy.orm import relationship
 import uuid
@@ -23,9 +24,6 @@ class Client(Base):
     country = Column(
         String, index=True, nullable=False 
     )
-    sector = Column(
-        String, index=True, nullable=False
-    )
     contact_person = Column(
         String, index=True, nullable=False
     )  
@@ -35,6 +33,9 @@ class Client(Base):
     email = Column(
         String, index=True, nullable=False
     )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)   
 
     hamasa_assignments = relationship(
         "HamasaUserClientAssignment", back_populates="client", cascade="all, delete-orphan"
