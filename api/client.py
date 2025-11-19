@@ -200,21 +200,21 @@ def get_all_clients(
     return paginate_queryset(query, page, page_size, base_url, ClientOut)
 
 
-# --------------------------------------
-# Search clients by name of organisation
-# --------------------------------------
-@router.get("/search/", response_model=PaginatedResponse)
-def search_users(query: str,
-                 current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer, UserRole.data_clerk])),
-                 db: Session = Depends(get_db)):
-    users = db.query(Client).filter(
-        (Client.first_name.ilike(f"%{query}%")) |
-        (Client.last_name.ilike(f"%{query}%")) |
-        (Client.email.ilike(f"%{query}%")) |
-        (Client.phone_number.ilike(f"%{query}%"))
-    ).all()
-    logger.info(f"User {current_user['id']} accessed user search with query '{query}'")
-    return users
+# # --------------------------------------
+# # Search clients by name of organisation
+# # --------------------------------------
+# @router.get("/search/", response_model=PaginatedResponse)
+# def search_users(query: str,
+#                  current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer, UserRole.data_clerk])),
+#                  db: Session = Depends(get_db)):
+#     users = db.query(Client).filter(
+#         (Client.first_name.ilike(f"%{query}%")) |
+#         (Client.last_name.ilike(f"%{query}%")) |
+#         (Client.email.ilike(f"%{query}%")) |
+#         (Client.phone_number.ilike(f"%{query}%"))
+#     ).all()
+#     logger.info(f"User {current_user['id']} accessed user search with query '{query}'")
+#     return users
 
 
 
