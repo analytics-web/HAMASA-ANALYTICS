@@ -16,7 +16,7 @@ from schemas.client import ClientCreate, ClientFilters, ClientOut, ClientUpdate,
 from schemas.client_user import UserClient, UserClientAssign, UserClientCollaboratorCreate, UserClientCollaboratorOut, UserClientCreateOut, UserClientOut, UserClientCreate, UserClientUpdate, UserClientUpdatePassword
 import logging
 
-from utils.client_helpers import split_contact_person
+from utils.client_helpers import split_contact_person, validate_unique_client_fields
 from utils.pagination import paginate_queryset
 
 
@@ -180,12 +180,18 @@ def get_all_clients(
     
     query = db.query(Client)
 
+    # Filters
     if filters.name:
         query = query.filter(Client.name_of_organisation.ilike(f"%{filters.name}%"))
 
     if filters.country:
         query = query.filter(Client.country.ilike(f"%{filters.country}%"))
 
+    # Sorting by created_at
+    if filters.sort and filters.sort.lower() == "asc":
+        query = query.order_by(Client.created_at.asc())
+    else:
+        query = query.order_by(Client.created_at.desc())
 
     base_url = str(request.url).split("?")[0]
 
@@ -216,76 +222,62 @@ def search_users(query: str,
 # update client details 
 # -----------------------
 @router.patch(
-        "/clients/",
-        response_model=ClientOut,
-        status_code=status.HTTP_200_OK,
-        responses={
-            404: {"description": "Client not found"},
-            403: {"description": "You do not have permission to access this resource"},
-            400: {"description": "invalid input"},  
-        },
-            summary="Update Client  details",
-    )
-def UpdateClient(
-    client_data:ClientUpdate,
-    client_id:Optional[uuid.UUID] = None,
-    name_of_organisation: Optional[str] = None,
-    token: str = Depends(oauth2_scheme),
+    "/clients/{client_id}",
+    response_model=ClientOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update client details"
+)
+def update_client(
+    client_id: uuid.UUID,
+    client_data: ClientUpdate,
     current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
     db: Session = Depends(get_db)
 ):
-    """
-    Org Admins can update their own client details
-    Super Admins can update any client details
-    """
-    # validate input
-    if(client_id is None and name_of_organisation is None) or (client_id is not None and name_of_organisation is not None):
-        raise HTTPException(
-            status_code= status.HTTP_400_BAD_REQUEST,
-            detail="Exactly one of client id or name of organisation must be provided"
-        )
+    # Fetch client
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found")
 
-    # check for name oforganisation if exists in db
-    client = None
-    if client_id:
-        client = db.query(Client).filter(
-            Client.id == client_id
-        ).first()
-    else:
-        client = db.query(Client).filter(
-            Client.name_of_organisation.ilike(f"%{name_of_organisation}%")
-        ).first()
+    # Org admin can ONLY edit their own client
+    if current_user["role"] == UserRole.org_admin:
+        if str(current_user["client_id"]) != str(client.id):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot modify another organisation"
+            )
 
-    if client is  None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client does not exists"
-        )
-
-    # Validate fields to be update
-    allowed_fields = {'contact_person', 'phone_number', 'email', 'country', 'name_of_organisation'}
+    # Extract updated fields
     update_data = client_data.model_dump(exclude_unset=True)
-    invalid_fields = set(update_data.keys()) - allowed_fields
-    if invalid_fields:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot update restricted fields: {invalid_fields}"
-        )
-    
-    # update fields dynamically
+
+    # --- Handle name updates (first/last → contact_person) ---
+    if "first_name" in update_data or "last_name" in update_data:
+        new_first = update_data.pop("first_name", None)
+        new_last = update_data.pop("last_name", None)
+
+        old_first, old_last = split_contact_person(client.contact_person)
+
+        updated_first = new_first if new_first is not None else old_first
+        updated_last = new_last if new_last is not None else old_last
+
+        update_data["contact_person"] = f"{updated_first} {updated_last}"
+
+    # Validate unique fields
+    validate_unique_client_fields(db, client.id, update_data)
+
+    # Apply updates
+    for field, value in update_data.items():
+        setattr(client, field, value)
+
+    # Commit once
     try:
-        for field, value in update_data.items():
-            setattr(client, field, value)
-            db.commit()
-            db.refresh(client)
+        db.commit()
+        db.refresh(client)
     except Exception as e:
         db.rollback()
-        logger.error(f"failed to update user {client.id}: {str(e)}")
-    
+        logger.error(f"Failed to update client {client.id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update client")
 
-    identifier = client_id if client_id else name_of_organisation
-    logger.info(f"User {current_user['id']} updated client details for the client {identifier}")
-
+    # Response split
     first_name, last_name = split_contact_person(client.contact_person)
 
     return ClientOut(
@@ -297,7 +289,6 @@ def UpdateClient(
         phone_number=client.phone_number,
         email=client.email
     )
-
 
 
 # ---------------------- 

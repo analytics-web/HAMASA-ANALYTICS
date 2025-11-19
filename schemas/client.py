@@ -57,6 +57,7 @@ class ClientUpdate(BaseModel):
     name_of_organisation: Optional[str] = None
     country: Optional[str] = None
     first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
 
@@ -64,6 +65,8 @@ class ClientUpdate(BaseModel):
 class ClientFilters(BaseModel):
     name: Optional[str] = None
     country: Optional[str] = None
+    sort: Optional[str] = "desc"  # default newest first
+
 
 
 class ClientUserFilters(BaseModel):
