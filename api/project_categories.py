@@ -45,9 +45,10 @@ def create_category(
         )
 
     new_cat = ProjectCategory(
-        category=category.name.strip(),
+        name=category.name.strip(),
         description=category.description.strip()
     )
+
 
     db.add(new_cat)
     db.commit()
