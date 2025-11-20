@@ -92,43 +92,6 @@ def get_all_users(
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
-# ------------------------ 
-# Get User By ID 
-# ------------------------
-@router.get("/{user_id}", response_model=UserListOut)
-def get_user_by_id(
-    user_id: UUID,
-    current_user: User = Depends(require_role([UserRole.super_admin, ])),
-    db: Session = Depends(get_db)
-):
-    """
-    Retrieve a user by their ID. Accessible by Super Admins only.
-    """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
-
-    logger.info(f"User {current_user['id']} accessed user {user_id}")
-    return user
-
-
-
-
-# -----------------  
-# Search Users 
-# ----------------- 
-@router.get("/search_user/", response_model=list[UserListOut])
-def search_users(query: str,
-                 current_user=Depends(require_role([UserRole.super_admin, UserRole.reviewer])),
-                 db: Session = Depends(get_db)):
-    users = db.query(User).filter(
-        (User.first_name.ilike(f"%{query}%")) |
-        (User.last_name.ilike(f"%{query}%")) |
-        (User.email.ilike(f"%{query}%")) |
-        (User.phone_number.ilike(f"%{query}%"))
-    ).all()
-    logger.info(f"User {current_user['id']} accessed user search with query '{query}'")
-    return users
 
 
 # -----------------  
