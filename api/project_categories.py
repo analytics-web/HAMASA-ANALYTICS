@@ -35,7 +35,7 @@ def create_category(
 ):
     # Check if category exists
     existing = db.query(ProjectCategory).filter(
-        ProjectCategory.category.ilike(category.category)
+        ProjectCategory.name.ilike(category.name)
     ).first()
 
     if existing:
@@ -71,7 +71,7 @@ def get_categories(
     # Search filter
     if filters.search:
         query = query.filter(
-            ProjectCategory.category.ilike(f"%{filters.search}%")
+            ProjectCategory.name.ilike(f"%{filters.search}%")
         )
 
     # Sorting
@@ -122,16 +122,16 @@ def update_category(
         raise HTTPException(404, "Category not found")
 
     # Prevent duplicates
-    if data.category:
+    if data.name:
         exists = db.query(ProjectCategory).filter(
-            ProjectCategory.category.ilike(data.category),
+            ProjectCategory.name.ilike(data.name),
             ProjectCategory.id != category_id
         ).first()
 
         if exists:
             raise HTTPException(400, "Another category with that name already exists")
 
-        category.category = data.category.strip()
+        category.name = data.name.strip()
 
     db.commit()
     db.refresh(category)
