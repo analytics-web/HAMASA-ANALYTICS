@@ -22,12 +22,15 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
           set -e
 
-          cd /var/www/HAMASA-ANALYTICS
-
           echo '➡️ Loading .env file'
           set -a
-          source .env
+          if ! source .env 2>/tmp/env_errors.log; then
+          echo '❌ .env contains invalid lines'
+          cat /tmp/env_errors.log
+          exit 1
+          fi
           set +a
+
 
           echo '➡️ Running database backup before deploy'
           bash backup_db.sh
