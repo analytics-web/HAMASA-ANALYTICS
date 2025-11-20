@@ -5,7 +5,7 @@ from typing import List, Optional
 from models.enums import ProjectStatus
 
 class ProjectCategoryBase(BaseModel):
-    category: str
+    name: str
     description: Optional[str] = None
 
 
@@ -24,7 +24,7 @@ class CategoryFilters(BaseModel):
     sort_order: Optional[str] = "desc"  # asc or desc
 
 class ProjectCategoryUpdate(BaseModel):
-    category: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
 
 

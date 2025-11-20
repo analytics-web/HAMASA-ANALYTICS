@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
-from api import auth, client, project
+from api import auth, client, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report_avenues, project_report_consultations, project_report_times, project_thematic_areas
 from db import engine
 from api import hamasa_user
 from models.base import Base
@@ -78,8 +78,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],         # Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],         # Allow all headers
+    allow_methods=["*"],         
+    allow_headers=["*"],         
 )
 
 @app.on_event("startup")
@@ -106,4 +106,13 @@ def root():
 app.include_router(auth.router, prefix="/hamasa-api/v1", tags=["Auth"])
 app.include_router(client.router, prefix="/hamasa-api/v1", tags=["Clients"])
 app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Hamasa Users"])
+app.include_router(project_categories.router, prefix="/hamasa-api/v1", tags=["Project Categories"])
+# app.include_router(project_thematic_areas.router, prefix="/hamasa-api/v1", tags=["Project Thematic Areas"])
+app.include_router(project_media_categories.router, prefix="/hamasa-api/v1", tags=["Project Media Categories"])
+app.include_router(project_media_sources.router, prefix="/hamasa-api/v1", tags=["Project Media Sources"])
+app.include_router(project_report_avenues.router, prefix="/hamasa-api/v1", tags=["Project Report Avenues"])
+app.include_router(project_report_times.router, prefix="/hamasa-api/v1", tags=["Projects Report Times"])
+app.include_router(project_report_consultations.router, prefix="/hamasa-api/v1", tags=["Project Report Consultations"])
+app.include_router(project_collaborators.router, prefix="/hamasa-api/v1", tags=["Project Collaborators"])
+app.include_router(project_ml.router, prefix="/hamasa-api/v1", tags=["Project Machine Learning"])
 app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])

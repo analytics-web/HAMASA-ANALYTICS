@@ -156,7 +156,7 @@ class ProjectCategory(Base):
     __tablename__ = "project_categories"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category = Column(String, nullable=False)
+    name = Column(String, nullable=False)
     description= Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
