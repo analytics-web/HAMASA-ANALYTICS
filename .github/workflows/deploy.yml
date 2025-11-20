@@ -48,3 +48,5 @@ jobs:
           echo '➡️ Restarting service'
           sudo systemctl restart hamasa.service
           "
+
+          
