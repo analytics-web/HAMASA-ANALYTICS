@@ -45,7 +45,7 @@ def create_category(
         )
 
     new_cat = ProjectCategory(
-        category=category.category.strip(),
+        category=category.name.strip(),
         description=category.description.strip()
     )
 
