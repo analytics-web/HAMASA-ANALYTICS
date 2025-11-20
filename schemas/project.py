@@ -2,7 +2,7 @@ import uuid
 from pydantic import BaseModel, UUID4, Field
 from typing import List, Optional
 
-from models.enums import ProjectStatus
+from models.enums import ProjectMediaCategory, ProjectStatus
 
 class ProjectCategoryBase(BaseModel):
     name: str
@@ -83,12 +83,16 @@ class MediaCategoryUpdate(BaseModel):
 
 class MediaSourceBase(BaseModel):
     name: str
-    category_id: UUID4
+    category_name: ProjectMediaCategory
 
-class MediaSourceOut(MediaSourceBase):
+class MediaSourceOut(BaseModel):
     id: UUID4
+    name: str
+    category_name: ProjectMediaCategory   # <-- return readable enum value
+
     class Config:
         from_attributes = True
+
 
 class MediaSourceFilters(BaseModel):
     search: Optional[str] = None
@@ -99,7 +103,8 @@ class MediaSourceFilters(BaseModel):
 
 class MediaSourceUpdate(BaseModel):
     name: Optional[str] = None
-    category_id: Optional[UUID4] = None
+    category_name: Optional[ProjectMediaCategory] = None
+
 
 
 

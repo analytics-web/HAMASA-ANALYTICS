@@ -1,5 +1,6 @@
 import csv
 from io import StringIO
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, requests, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -12,8 +13,9 @@ from schemas.hamasa_user import UserRole
 from schemas.project import *
 from db import get_db
 from utils.pagination import paginate_queryset
+from utils.project_helpers import get_category_by_name
 
-router = APIRouter(prefix="/projects", tags=["Project Media Sources"])
+router = APIRouter(prefix="/projects", tags=["Project Media Categories"])
 
 #--------------------------------------------------------------------------------------------------
 # ---------------------------- Project-Media-Sources CRUD Operations ----------------------------------
@@ -35,19 +37,19 @@ def create_media_source(
     ])),
     db: Session = Depends(get_db)
 ):
-    # Ensure category exists
+    # Get category by name (enum value)
     category = db.query(MediaCategory).filter(
-        MediaCategory.id == source.category_id,
-        MediaCategory.is_deleted == False
+        MediaCategory.name.ilike(source.category_name.value),
+        MediaCategory.is_deleted == False,
     ).first()
 
     if not category:
-        raise HTTPException(404, "Media category not found")
+        raise HTTPException(404, f"Media category '{source.category_name}' not found")
 
-    # Prevent duplicate name inside the same category
+    # Check duplicates
     exists = db.query(MediaSource).filter(
         MediaSource.name.ilike(source.name),
-        MediaSource.category_id == source.category_id,
+        MediaSource.category_id == category.id,
         MediaSource.is_deleted == False
     ).first()
 
@@ -56,14 +58,19 @@ def create_media_source(
 
     new_source = MediaSource(
         name=source.name.strip(),
-        category_id=source.category_id
+        category_id=category.id
     )
 
     db.add(new_source)
     db.commit()
     db.refresh(new_source)
 
-    return new_source
+    return MediaSourceOut(
+        id=new_source.id,
+        name=new_source.name,
+        category_name=category.name
+    )
+
 
 #------------------------------
 # get all media sources
@@ -76,19 +83,31 @@ def get_media_sources(
     page_size: int = 10,
     db: Session = Depends(get_db)
 ):
-    query = db.query(MediaSource).filter(MediaSource.is_deleted == False)
+    query = (
+        db.query(
+            MediaSource.id,
+            MediaSource.name,
+            MediaCategory.name.label("category_name")
+        )
+        .join(MediaCategory, MediaCategory.id == MediaSource.category_id)
+        .filter(MediaSource.is_deleted == False)
+    )
 
-    # Filter by category
+    # Filter by category ID
     if filters.category_id:
         query = query.filter(MediaSource.category_id == filters.category_id)
 
-    # Search by name
+    # Filter by category name (via enum or raw string)
     if filters.search:
-        search = f"%{filters.search}%"
-        query = query.filter(MediaSource.name.ilike(search))
+        query = query.filter(MediaSource.name.ilike(f"%{filters.search}%"))
 
-    # Sorting
-    sort_field = getattr(MediaSource, filters.sort_by, MediaSource.created_at)
+    # Sort safely
+    sort_field = {
+        "name": MediaSource.name,
+        "created_at": MediaSource.created_at,
+        "category_name": MediaCategory.name
+    }.get(filters.sort_by, MediaSource.created_at)
+
     query = query.order_by(
         sort_field.asc() if filters.sort_order.lower() == "asc" else sort_field.desc()
     )
@@ -98,27 +117,14 @@ def get_media_sources(
     return paginate_queryset(query, page, page_size, base_url, MediaSourceOut)
 
 
-#------------------------------
-# get media source by id
-#------------------------------
-@router.get("/media-sources/{id}", response_model=MediaSourceOut)
-def get_media_source(id: uuid.UUID, db: Session = Depends(get_db)):
-    source = db.query(MediaSource).filter(
-        MediaSource.id == id,
-        MediaSource.is_deleted == False
-    ).first()
 
-    if not source:
-        raise HTTPException(404, "Media source not found")
-
-    return source
 
 #------------------------------
 # update media source
 #------------------------------
 @router.patch("/media-sources/{id}", response_model=MediaSourceOut)
 def update_media_source(
-    id: uuid.UUID,
+    id: UUID,
     data: MediaSourceUpdate,
     current_user=Depends(require_role([
         UserRole.super_admin,
@@ -137,39 +143,45 @@ def update_media_source(
 
     update_data = data.model_dump(exclude_unset=True)
 
-    # If category is being changed, verify it exists
-    if "category_id" in update_data:
+    # Category update using enum name
+    if "category_id" not in update_data and "category_name" in update_data:
         category = db.query(MediaCategory).filter(
-            MediaCategory.id == update_data["category_id"],
+            MediaCategory.name.ilike(update_data["category_name"]),
             MediaCategory.is_deleted == False
         ).first()
 
         if not category:
             raise HTTPException(404, "New category not found")
 
-    # Prevent duplicates inside the same category
-    if "name" in update_data or "category_id" in update_data:
-        name = update_data.get("name", source.name)
-        category_id = update_data.get("category_id", source.category_id)
+        update_data["category_id"] = category.id
 
-        exists = db.query(MediaSource).filter(
-            MediaSource.name.ilike(name),
-            MediaSource.category_id == category_id,
-            MediaSource.id != id,
-            MediaSource.is_deleted == False
-        ).first()
+    # Duplicate prevention
+    name = update_data.get("name", source.name)
+    category_id = update_data.get("category_id", source.category_id)
 
-        if exists:
-            raise HTTPException(400, "Another source with that name already exists in this category")
+    exists = db.query(MediaSource).filter(
+        MediaSource.name.ilike(name),
+        MediaSource.category_id == category_id,
+        MediaSource.id != id,
+        MediaSource.is_deleted == False
+    ).first()
 
-    # Apply updates
+    if exists:
+        raise HTTPException(400, "Another source with that name already exists in this category")
+
     for field, value in update_data.items():
         setattr(source, field, value)
 
     db.commit()
     db.refresh(source)
 
-    return source
+    category = db.query(MediaCategory).filter(MediaCategory.id == source.category_id).first()
+
+    return MediaSourceOut(
+        id=source.id,
+        name=source.name,
+        category_name=category.name
+    )
 
 
 #------------------------------

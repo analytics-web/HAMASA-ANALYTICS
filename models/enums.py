@@ -13,3 +13,13 @@ class ProjectStatus(str, Enum):
     active = "active"
     completed = "completed"
     archived = "archived"
+
+
+class ProjectMediaCategory(str, Enum):
+    social_media = "Social Media"
+    news = "news"
+    blogs = "blogs"
+    forums = "forums"
+    videos = "videos"
+    podcasts = "podcasts"
+    others = "others"
