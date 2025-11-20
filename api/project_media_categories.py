@@ -128,7 +128,7 @@ def update_media_category(
     # Prevent duplicate category name
     if data.name:
         exists = db.query(MediaCategory).filter(
-            MediaCategory.name.ilike(data.name),
+            MediaCategory.name == data.name ,
             MediaCategory.id != id
         ).first()
         if exists:

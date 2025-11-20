@@ -133,6 +133,7 @@ def update_category(
             raise HTTPException(400, "Another category with that name already exists")
 
         category.name = data.name.strip()
+        category.description = data.description.strip() if data.description else category.description
 
     db.commit()
     db.refresh(category)
