@@ -40,7 +40,7 @@ jobs:
           echo '➡️ Updating dependencies'
           cd /var/www/
           source fast-env/bin/activate
-          pip install -r requirements.txt --upgrade --no-cache-dir
+          pip install -r /var/www/HAMASA-ANALYTICS/requirements.txt --upgrade --no-cache-dir
 
           echo '⚠️ Skipping automatic Alembic migrations (manual mode)'
 
