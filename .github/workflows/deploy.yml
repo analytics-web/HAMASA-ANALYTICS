@@ -29,7 +29,7 @@ jobs:
           source .env
           set +a
 
-          echo '➡️ Running database backup before migration'
+          echo '➡️ Running database backup before deploy'
           bash backup_db.sh
 
           echo '➡️ Pulling latest code'
@@ -40,15 +40,7 @@ jobs:
           source fast-env/bin/activate
           pip install -r requirements.txt --upgrade --no-cache-dir
 
-          echo '➡️ Running Alembic migrations'
-          if fast-env/bin/alembic upgrade head; then
-            echo '✅ Migration succeeded'
-          else
-            echo '❌ Migration failed — restoring latest backup'
-            bash restore_latest_backup.sh
-            exit 1
-          fi
-
+          echo '⚠️ Skipping automatic Alembic migrations (manual mode)'
 
           echo '➡️ Restarting service'
           sudo systemctl restart hamasa.service
