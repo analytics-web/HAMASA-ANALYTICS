@@ -60,10 +60,11 @@ class ThematicAreaFilters(BaseModel):
 
 class MediaCategoryBase(BaseModel):
     name: str
+    description: Optional[str] = None
 
 class MediaCategoryOut(MediaCategoryBase):
     id: UUID4
-    media_sources: List["MediaSourceOut"] = []
+    # media_sources: List["MediaSourceOut"] = []
     class Config:
         from_attributes = True
 
