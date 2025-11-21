@@ -13,7 +13,7 @@ from schemas.project import *
 from db import get_db
 from utils.pagination import paginate_queryset
 
-router = APIRouter(prefix="/projects", tags=["Projects Report Consultations"])
+router = APIRouter(prefix="/projects", tags=["Project Report Consultations"])
 
 #--------------------------------------------------------------------------------------------------
 # ---------------------------- Project-Report-Consultations CRUD Operations -----------------------
