@@ -1,118 +1,143 @@
-import csv
-from io import StringIO
-from fastapi import APIRouter, Depends, HTTPException, Request, requests, status
+# ------------------------------------------------------------
+# PROJECT CREATE / UPDATE (SAFE, FIXED, VALIDATION-PROOF)
+# ------------------------------------------------------------
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+
 from api.deps import require_role
-from models.ml_analysis_result import MLAnalysisResult
-from models.project import MediaCategory, Project,ProjectCategory, ProjectThematicAreas, MediaSource, ReportAvenue, ReportTime, ReportConsultation
+from db import get_db
 from models.client_user import ClientUser
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
-from schemas.project import *
-from db import get_db
-from utils.pagination import paginate_queryset
+from schemas.project import (
+    ProjectCreate,
+    ProjectFilters,
+    ProjectOutSafe,
+    ProjectUpdate,
+)
+from models.project import (
+    Project,
+    ProjectCategory,
+    ProjectThematicAreas,
+    ProjectMediaSources,
+    MediaSource,
+    ReportAvenue,
+    ReportTime,
+    ReportConsultation
+)
+
+
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
-#--------------------------------------------------------------------------------------------------
-# ---------------------------- Project CRUD Operations --------------------------------------------
-#--------------------------------------------------------------------------------------------------
 
-#---------------------
-# Create a project
-# ---------------------
-@router.post("/", response_model=ProjectOut)
+# -------------------------------------------------------
+# CREATE PROJECT
+# -------------------------------------------------------
+@router.post("/", response_model=ProjectOutSafe)
 def create_project(
-    project: ProjectCreate,
+    payload: ProjectCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role([
-        UserRole.super_admin,
-        UserRole.org_admin,
-    ]))
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+        ])
+    ),
 ):
 
-    new_project = Project(
-        title=project.title,
-        description=project.description,
-        client_id=project.client_id
+    # -------------------------------
+    # Create main project
+    # -------------------------------
+    project = Project(
+        title=payload.title,
+        description=payload.description,
+        client_id=payload.client_id
     )
-    db.add(new_project)
+    db.add(project)
     db.commit()
-    db.refresh(new_project)
+    db.refresh(project)
 
-    # ---------------------
-    # Categories
-    # ---------------------
-    if project.category_ids:
-        new_project.categories = db.query(ProjectCategory).filter(
-            ProjectCategory.id.in_(project.category_ids)
+    # -------------------------------
+    # Categories (many-to-many)
+    # -------------------------------
+    if payload.category_ids:
+        project.categories = db.query(ProjectCategory).filter(
+            ProjectCategory.id.in_(payload.category_ids)
         ).all()
 
-    # ---------------------
-    # Thematic Areas (NEW)
-    # User submits "new" areas, not existing ones
-    # ---------------------
+    # -------------------------------
+    # Thematic Areas (create new rows)
+    # -------------------------------
     created_thematic_areas = []
-    for ta in project.thematic_areas:
-        new_area = ProjectThematicAreas(
+    for ta in payload.thematic_areas:
+        new_ta = ProjectThematicAreas(
             area=ta.area,
             title=ta.title,
             description=ta.description,
-            monitoring_objective=ta.monitoring_objectives  # ARRAY → JSONB
+            monitoring_objective=ta.monitoring_objectives,
         )
-        db.add(new_area)
-        created_thematic_areas.append(new_area)
+        db.add(new_ta)
+        created_thematic_areas.append(new_ta)
 
     db.commit()
-    for area in created_thematic_areas:
-        db.refresh(area)
-    
-    new_project.thematic_areas.extend(created_thematic_areas)
 
-    # ---------------------
-    # Collaborators
-    # ---------------------
-    if project.collaborator_ids:
-        new_project.collaborators = db.query(ClientUser).filter(
-            ClientUser.id.in_(project.collaborator_ids)
+    for t in created_thematic_areas:
+        db.refresh(t)
+
+    project.thematic_areas.extend(created_thematic_areas)
+
+    # -------------------------------
+    # Collaborators (many-to-many)
+    # -------------------------------
+    if payload.collaborator_ids:
+        project.collaborators = db.query(ClientUser).filter(
+            ClientUser.id.in_(payload.collaborator_ids)
         ).all()
 
-    # ---------------------
-    # Media sources
-    # ---------------------
-    if project.media_source_ids:
-        new_project.media_sources = db.query(MediaSource).filter(
-            MediaSource.id.in_(project.media_source_ids)
+    # -------------------------------
+    # Media Sources (junction table)
+    # -------------------------------
+    if payload.media_source_ids:
+        for ms_id in payload.media_source_ids:
+            link = ProjectMediaSources(
+                project_id=project.id,
+                media_source_id=ms_id
+            )
+            db.add(link)
+
+    # -------------------------------
+    # Report avenues, times, consultations
+    # -------------------------------
+    if payload.report_avenue_ids:
+        project.report_avenues = db.query(ReportAvenue).filter(
+            ReportAvenue.id.in_(payload.report_avenue_ids)
         ).all()
 
-    # ---------------------
-    # Report Avenues
-    # ---------------------
-    if project.report_avenue_ids:
-        new_project.report_avenues = db.query(ReportAvenue).filter(
-            ReportAvenue.id.in_(project.report_avenue_ids)
+    if payload.report_time_ids:
+        project.report_times = db.query(ReportTime).filter(
+            ReportTime.id.in_(payload.report_time_ids)
         ).all()
 
-    if project.report_time_ids:
-        new_project.report_times = db.query(ReportTime).filter(
-            ReportTime.id.in_(project.report_time_ids)
-        ).all()
-
-    if project.report_consultation_ids:
-        new_project.report_consultations = db.query(ReportConsultation).filter(
-            ReportConsultation.id.in_(project.report_consultation_ids)
+    if payload.report_consultation_ids:
+        project.report_consultations = db.query(ReportConsultation).filter(
+            ReportConsultation.id.in_(payload.report_consultation_ids)
         ).all()
 
     db.commit()
-    db.refresh(new_project)
+    db.refresh(project)
 
-    return new_project
+    # -------------------------------
+    # RETURN SAFE SERIALIZED VERSION
+    # -------------------------------
+    return ProjectOutSafe.from_model(project)
 
 
-#------------------------
-# Read all projects
-#------------------------
+# -------------------------------------------------------
+# GET ALL PROJECTS (SAFE OUTPUT)
+# -------------------------------------------------------
 @router.get("/", response_model=PaginatedResponse)
 def get_projects(
     request: Request,
@@ -126,11 +151,14 @@ def get_projects(
         UserRole.reviewer,
         UserRole.data_clerk,
         UserRole.org_user
-    ]))
+    ])),
 ):
 
     query = db.query(Project).filter(Project.is_deleted == False)
 
+    # ------------------------------
+    # Filters
+    # ------------------------------
     if filters.title:
         query = query.filter(Project.title.ilike(f"%{filters.title}%"))
 
@@ -146,47 +174,168 @@ def get_projects(
     else:
         query = query.order_by(Project.created_at.desc())
 
+    # ------------------------------
+    # Pagination
+    # ------------------------------
+    total = query.count()
+
+    skip = (page - 1) * page_size
+    items = query.offset(skip).limit(page_size).all()
+
+    # ------------------------------
+    # Safe serialization
+    # ------------------------------
+    results = [ProjectOutSafe.from_model(p) for p in items]
+
     base_url = str(request.url).split("?")[0]
 
-    return paginate_queryset(query, page, page_size, base_url, ProjectOut)
+    next_url = None
+    prev_url = None
+
+    if skip + page_size < total:
+        next_url = f"{base_url}?page={page+1}&page_size={page_size}"
+
+    if page > 1:
+        prev_url = f"{base_url}?page={page-1}&page_size={page_size}"
+
+    return {
+        "count": total,
+        "next": next_url,
+        "previous": prev_url,
+        "results": results
+    }
 
 
-# --------------------------
-# Update project
-# --------------------------
-@router.put("/{uid}/", response_model=ProjectOut)
-def update_project(uid: str, payload: ProjectUpdate, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == uid, Project.is_deleted == False).first()
+
+# -------------------------------------------------------
+# UPDATE PROJECT (FULL SAFE)
+# -------------------------------------------------------
+@router.put("/{uid}/", response_model=ProjectOutSafe)
+def update_project(
+    uid: str,
+    payload: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+        ])
+    ),
+):
+    project = db.query(Project).filter(
+        Project.id == uid,
+        Project.is_deleted == False
+    ).first()
 
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(404, "Project not found")
 
+    # ------------------------------------------------
+    # Basic fields
+    # ------------------------------------------------
     update_data = payload.model_dump(exclude_unset=True)
 
-    for field, value in update_data.items():
-        setattr(project, field, value)
+    if "title" in update_data:
+        project.title = update_data["title"]
+
+    if "description" in update_data:
+        project.description = update_data["description"]
+
+    # ------------------------------------------------
+    # Categories
+    # ------------------------------------------------
+    if payload.category_ids is not None:
+        project.categories = db.query(ProjectCategory).filter(
+            ProjectCategory.id.in_(payload.category_ids)
+        ).all()
+
+    # ------------------------------------------------
+    # Collaborators
+    # ------------------------------------------------
+    if payload.collaborator_ids is not None:
+        project.collaborators = db.query(ClientUser).filter(
+            ClientUser.id.in_(payload.collaborator_ids)
+        ).all()
+
+    # ------------------------------------------------
+    # Media sources (clear and repopulate)
+    # ------------------------------------------------
+    if payload.media_source_ids is not None:
+        # Delete old
+        db.query(ProjectMediaSources).filter(
+            ProjectMediaSources.project_id == project.id
+        ).delete()
+        db.commit()
+
+        # Insert new
+        for ms_id in payload.media_source_ids:
+            db.add(ProjectMediaSources(
+                project_id=project.id,
+                media_source_id=ms_id
+            ))
+
+    # ------------------------------------------------
+    # Report Avenues
+    # ------------------------------------------------
+    if payload.report_avenue_ids is not None:
+        project.report_avenues = db.query(ReportAvenue).filter(
+            ReportAvenue.id.in_(payload.report_avenue_ids)
+        ).all()
+
+    if payload.report_time_ids is not None:
+        project.report_times = db.query(ReportTime).filter(
+            ReportTime.id.in_(payload.report_time_ids)
+        ).all()
+
+    if payload.report_consultation_ids is not None:
+        project.report_consultations = db.query(ReportConsultation).filter(
+            ReportConsultation.id.in_(payload.report_consultation_ids)
+        ).all()
 
     db.commit()
     db.refresh(project)
-    return project
+
+    return ProjectOutSafe.from_model(project)
 
 
-# --------------------------
-# Delete project
-# --------------------------
+
+# -------------------------------------------------------
+# DELETE PROJECT (SOFT DELETE)
+# -------------------------------------------------------
 @router.delete("/{uid}/", status_code=204)
-def delete_project(uid: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == uid, Project.is_deleted == False).first()
+def delete_project(
+    uid: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+        ])
+    ),
+):
+
+    project = db.query(Project).filter(
+        Project.id == uid,
+        Project.is_deleted == False
+    ).first()
+
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(404, "Project not found")
 
+    # Soft delete the main project
     project.is_deleted = True
+
+    # Soft delete media source links
+    db.query(ProjectMediaSources).filter(
+        ProjectMediaSources.project_id == project.id
+    ).update({"is_deleted": True})
+
+    # NOTE:
+    # Thematic areas created specifically for this project are new rows,
+    # so they are safe to soft delete.
+    for ta in project.thematic_areas:
+        ta.is_deleted = True
+
     db.commit()
-    return
 
-
-
-
-
-
-
+    return None

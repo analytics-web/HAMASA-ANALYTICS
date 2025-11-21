@@ -3,6 +3,7 @@ from pydantic import BaseModel, UUID4, Field
 from typing import List, Optional
 
 from models.enums import ProjectMediaCategory, ProjectStatus
+from models.project import MediaSource, Project, ProjectThematicAreas
 
 class ProjectCategoryBase(BaseModel):
     name: str
@@ -26,6 +27,12 @@ class CategoryFilters(BaseModel):
 class ProjectCategoryUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+
+
+
+
+
+
 
 
 class ProjectThematicAreaBase(BaseModel):
@@ -58,6 +65,10 @@ class ThematicAreaFilters(BaseModel):
 
 
 
+
+
+
+
 class MediaCategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -77,6 +88,11 @@ class MediaCategoryFilters(BaseModel):
 class MediaCategoryUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+
+
+
+
+
 
 
 
@@ -248,16 +264,51 @@ class ProjectUpdate(BaseModel):
 # ------------------- Output -------------------
 class ProjectOut(ProjectBase):
     id: UUID4
-    categories: List["ProjectCategoryOut"] = []
-    thematic_areas: List["ProjectThematicAreaOut"] = []
-    collaborators: List["ClientUserOut"] = []
-    media_sources: List["MediaSourceOut"] = []
-    report_avenues: List["ReportAvenueOut"] = []
-    report_times: List["ReportTimeOut"] = []
-    report_consultations: List["ReportConsultationOut"] = []
+    categories: List[ProjectCategoryOut] = []
+    thematic_areas: List[ProjectThematicAreaOut] = []
+    collaborators: List[ClientUserOut] = []
+    media_sources: List[MediaSourceOut] = []
+    report_avenues: List[ReportAvenueOut] = []
+    report_times: List[ReportTimeOut] = []
+    report_consultations: List[ReportConsultationOut] = []
 
-    class Config:
-        from_attributes = True
+    @classmethod
+    def model_validate(cls, model):
+        return cls(
+            id=model.id,
+            title=model.title,
+            description=model.description,
+            client_id=model.client_id,
+            categories=[
+                ProjectCategoryOut.model_validate(c)
+                for c in model.categories
+            ],
+            thematic_areas=[
+                ProjectThematicAreaOut.model_validate(t)
+                for t in model.thematic_areas
+            ],
+            collaborators=[
+                ClientUserOut.model_validate(u)
+                for u in model.collaborators
+            ],
+            media_sources=[
+                MediaSourceOut.model_validate(ms)
+                for ms in model.media_sources
+            ],
+            report_avenues=[
+                ReportAvenueOut.model_validate(a)
+                for a in model.report_avenues
+            ],
+            report_times=[
+                ReportTimeOut.model_validate(t)
+                for t in model.report_times
+            ],
+            report_consultations=[
+                ReportConsultationOut.model_validate(c)
+                for c in model.report_consultations
+            ]
+        )
+
 
 
 class ProjectFilters(BaseModel):
@@ -302,3 +353,262 @@ class MLCSVStoredResponse(BaseModel):
     project_id: UUID4
     total_rows: int
     status: str = "stored"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================================================
+# NEW SAFE SERIALIZATION SCHEMAS (ONLY FOR PROJECT OUTPUT)
+# ============================================================
+
+# from pydantic import BaseModel, UUID4
+# from typing import List, Optional
+# from models.enums import ProjectMediaCategory
+# from models.project import MediaSource, ProjectThematicAreas
+
+
+# -------------------------------
+# SAFE Thematic Area Output
+# -------------------------------
+class ProjectThematicAreaOutSafe(BaseModel):
+    id: UUID4
+    area: str
+    title: str
+    description: Optional[str] = None
+    monitoring_objectives: List[str]
+
+    @classmethod
+    def from_model(cls, model: ProjectThematicAreas):
+        return cls(
+            id=model.id,
+            area=model.area,
+            title=model.title,
+            description=model.description,
+            monitoring_objectives=model.monitoring_objective or []
+        )
+
+
+# -------------------------------
+# SAFE Media Source Output
+# -------------------------------
+class MediaSourceOutSafe(BaseModel):
+    id: UUID4
+    name: str
+    category_name: ProjectMediaCategory
+
+    @classmethod
+    def from_model(cls, model: MediaSource):
+        # model.category.name is the DB string, convert to enum
+        clean = ProjectMediaCategory(model.category.name)
+        return cls(
+            id=model.id,
+            name=model.name,
+            category_name=clean
+        )
+
+
+# -------------------------------
+# SAFE Project Out
+# -------------------------------
+class ProjectOutSafe(BaseModel):
+    id: UUID4
+    title: str
+    description: str
+    client_id: UUID4
+
+    categories: List[ProjectCategoryOut] = []
+    thematic_areas: List[ProjectThematicAreaOutSafe] = []
+    collaborators: List[ClientUserOut] = []
+    media_sources: List[MediaSourceOutSafe] = []
+    report_avenues: List[ReportAvenueOut] = []
+    report_times: List[ReportTimeOut] = []
+    report_consultations: List[ReportConsultationOut] = []
+
+    @classmethod
+    def from_model(cls, model):
+        return cls(
+            id=model.id,
+            title=model.title,
+            description=model.description,
+            client_id=model.client_id,
+
+            categories=[
+                ProjectCategoryOut.model_validate(c)
+                for c in model.categories
+            ],
+
+            thematic_areas=[
+                ProjectThematicAreaOutSafe.from_model(t)
+                for t in model.thematic_areas
+            ],
+
+            collaborators=[
+                ClientUserOut.model_validate(u)
+                for u in model.collaborators
+            ],
+
+            media_sources=[
+                MediaSourceOutSafe.from_model(ms)
+                for ms in model.media_sources
+            ],
+
+            report_avenues=[
+                ReportAvenueOut.model_validate(a)
+                for a in model.report_avenues
+            ],
+
+            report_times=[
+                ReportTimeOut.model_validate(t)
+                for t in model.report_times
+            ],
+
+            report_consultations=[
+                ReportConsultationOut.model_validate(c)
+                for c in model.report_consultations
+            ]
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------
+# Safe Media Source Output
+# -----------------------------
+class MediaSourceOutSafe(BaseModel):
+    id: UUID4
+    name: str
+    category_name: ProjectMediaCategory
+
+    @staticmethod
+    def from_model(ms):
+        return MediaSourceOutSafe(
+            id=ms.id,
+            name=ms.name,
+            category_name=ProjectMediaCategory(ms.category.name)
+        )
+
+
+# -----------------------------
+# Safe Thematic Area Output
+# -----------------------------
+class ProjectThematicAreaOutSafe(BaseModel):
+    id: UUID4
+    area: str
+    title: str
+    description: str | None
+    monitoring_objectives: List[str]
+
+    @staticmethod
+    def from_model(ta):
+        return ProjectThematicAreaOutSafe(
+            id=ta.id,
+            area=ta.area,
+            title=ta.title,
+            description=ta.description,
+            monitoring_objectives=ta.monitoring_objective or []
+        )
+
+
+# -----------------------------
+# Safe Project Output
+# -----------------------------
+class ProjectOutSafe(BaseModel):
+    id: UUID4
+    title: str
+    description: str
+    client_id: UUID4
+
+    categories: List[ProjectCategoryOut]
+    collaborators: List[ClientUserOut]
+    media_sources: List[MediaSourceOutSafe]
+    thematic_areas: List[ProjectThematicAreaOutSafe]
+
+    report_avenues: List[ReportAvenueOut]
+    report_times: List[ReportTimeOut]
+    report_consultations: List[ReportConsultationOut]
+
+    @staticmethod
+    def from_model(project: Project):
+
+        return ProjectOutSafe(
+            id=project.id,
+            title=project.title,
+            description=project.description,
+            client_id=project.client_id,
+
+            categories=[
+                ProjectCategoryOut.model_validate(c)
+                for c in project.categories
+            ],
+
+            collaborators=[
+                ClientUserOut.model_validate(c)
+                for c in project.collaborators
+            ],
+
+            thematic_areas=[
+                ProjectThematicAreaOutSafe.from_model(t)
+                for t in project.thematic_areas
+            ],
+
+            media_sources=[
+                MediaSourceOutSafe.from_model(ms)
+                for ms in project.media_sources
+            ],
+
+            report_avenues=[
+                ReportAvenueOut.model_validate(r)
+                for r in project.report_avenues
+            ],
+
+            report_times=[
+                ReportTimeOut.model_validate(t)
+                for t in project.report_times
+            ],
+
+            report_consultations=[
+                ReportConsultationOut.model_validate(c)
+                for c in project.report_consultations
+            ],
+        )

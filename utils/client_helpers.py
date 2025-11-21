@@ -58,3 +58,33 @@ def validate_unique_client_fields(db: Session, client_id: uuid.UUID, update_data
                 status_code=400,
                 detail="Name of organisation already exists"
             )
+
+
+def client_paginate_queryset(query, page, page_size, base_url, schema):
+    total = query.count()
+    offset = (page - 1) * page_size
+
+    items = query.offset(offset).limit(page_size).all()
+
+    results = [
+        schema.model_validate(item, from_attributes=True)
+        for item in items
+    ]
+
+    next_url = (
+        f"{base_url}?page={page + 1}&page_size={page_size}"
+        if offset + page_size < total
+        else None
+    )
+    prev_url = (
+        f"{base_url}?page={page - 1}&page_size={page_size}"
+        if page > 1
+        else None
+    )
+
+    return {
+        "count": total,
+        "next": next_url,
+        "previous": prev_url,
+        "results": results,
+    }

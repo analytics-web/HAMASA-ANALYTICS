@@ -19,4 +19,5 @@ class ProjectMediaCategory(str, Enum):
     social_media = "Social Media"
     radio = "Radio"
     tv = "TV"
-    others = "Print Media"
+    print_media = "Print Media"
+    others = "Others"

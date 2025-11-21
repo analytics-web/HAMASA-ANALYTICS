@@ -1,5 +1,5 @@
 from enum import Enum
-from sqlalchemy import Column, String, Date, Boolean, ForeignKey, Table, UniqueConstraint
+from sqlalchemy import Column, String, Date, Boolean, ForeignKey, Table, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, ENUM
 from sqlalchemy.orm import relationship
 import uuid
@@ -28,6 +28,8 @@ class ClientUser(Base):
     is_active = Column(Boolean, default=True)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=True)  # optional: client-specific roles
+    created_at = Column(Date, nullable=False, default=func.now())
+    updated_at = Column(Date, nullable=False, default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)
 
     # Relationship

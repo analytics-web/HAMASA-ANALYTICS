@@ -101,8 +101,7 @@ class UserClientCollaboratorCreate(BaseModel):
     phone_number:str
     email:EmailStr
     role:UserRole = UserRole.org_user
-    is_active:Optional[bool] = False
-    hashed_password:str
+
 
 
 class UserClientCollaboratorOut(BaseModel):

@@ -31,3 +31,27 @@ def paginate_queryset(query, page, page_size, base_url, schema):
         "previous": prev_url,
         "results": results
     }
+
+
+
+def paginate_queryset_list(items, page, page_size, base_url):
+    total = len(items)
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    page_items = items[start:end]
+
+    next_url = None
+    prev_url = None
+
+    if end < total:
+        next_url = f"{base_url}?page={page + 1}&page_size={page_size}"
+    if page > 1:
+        prev_url = f"{base_url}?page={page - 1}&page_size={page_size}"
+
+    return {
+        "count": total,
+        "next": next_url,
+        "previous": prev_url,
+        "results": page_items,
+    }
