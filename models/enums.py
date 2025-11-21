@@ -17,11 +17,6 @@ class ProjectStatus(str, Enum):
 
 class ProjectMediaCategory(str, Enum):
     social_media = "Social Media"
-    news = "News"
-    blogs = "Blogs"
-    forums = "Forums"
-    videos = "Videos"
-    podcasts = "Podcasts"
     radio = "Radio"
     tv = "TV"
-    others = "Others"
+    others = "Print Media"

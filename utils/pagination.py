@@ -31,26 +31,3 @@ def paginate_queryset(query, page, page_size, base_url, schema):
         "previous": prev_url,
         "results": results
     }
-
-
-
-# def paginate_queryset(query, page, page_size, base_url, schema):
-    # # If list, handle manually
-    # if isinstance(query, list):
-    #     total = len(query)
-    #     start = (page - 1) * page_size
-    #     end = start + page_size
-    #     items = query[start:end]
-    # else:
-    #     total = query.count()
-    #     items = query.offset((page - 1) * page_size).limit(page_size).all()
-
-    # return {
-    #     "data": [schema.model_validate(item) for item in items],
-    #     "total": total,
-    #     "page": page,
-    #     "page_size": page_size,
-    #     "total_pages": (total + page_size - 1) // page_size,
-    #     "next": f"{base_url}?page={page+1}&page_size={page_size}" if (page * page_size) < total else None,
-    #     "previous": f"{base_url}?page={page-1}&page_size={page_size}" if page > 1 else None
-    # }
