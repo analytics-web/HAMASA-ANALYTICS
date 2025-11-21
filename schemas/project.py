@@ -1,3 +1,4 @@
+import json
 import uuid
 from pydantic import BaseModel, UUID4, Field
 from typing import List, Optional
@@ -539,14 +540,28 @@ class ProjectThematicAreaOutSafe(BaseModel):
     description: str | None
     monitoring_objectives: List[str]
 
+    
     @staticmethod
     def from_model(ta):
+        # database stores it as string
+        raw = ta.monitoring_objective
+
+        if isinstance(raw, list):
+            mo = raw
+        elif isinstance(raw, str):
+            try:
+                mo = json.loads(raw)
+            except:
+                mo = [raw]  # fallback: wrap string into list
+        else:
+            mo = []
+
         return ProjectThematicAreaOutSafe(
             id=ta.id,
             area=ta.area,
             title=ta.title,
             description=ta.description,
-            monitoring_objectives=ta.monitoring_objective or []
+            monitoring_objectives=mo
         )
 
 
