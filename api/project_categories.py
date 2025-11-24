@@ -70,9 +70,9 @@ def get_categories(
     query = db.query(ProjectCategory).filter(ProjectCategory.is_deleted == False)
 
     # Search filter
-    if filters.search:
+    if filters.name:
         query = query.filter(
-            ProjectCategory.name.ilike(f"%{filters.search}%")
+            ProjectCategory.name.ilike(f"%{filters.name}%")
         )
 
     # Sorting

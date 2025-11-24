@@ -56,8 +56,8 @@ def list_report_consultations(
 ):
     query = db.query(ReportConsultation).filter(ReportConsultation.is_deleted == False)
 
-    if filters.search:
-        query = query.filter(ReportConsultation.name.ilike(f"%{filters.search}%"))
+    if filters.name:
+        query = query.filter(ReportConsultation.name.ilike(f"%{filters.name}%"))
 
     sort_field = getattr(ReportConsultation, filters.sort_by, ReportConsultation.created_at)
 

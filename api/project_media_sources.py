@@ -128,8 +128,8 @@ def get_media_sources(
         query = query.filter(MediaSource.category_id == filters.category_id)
 
     # Search by name
-    if filters.search:
-        query = query.filter(MediaSource.name.ilike(f"%{filters.search}%"))
+    if filters.name:
+        query = query.filter(MediaSource.name.ilike(f"%{filters.name}%"))
 
     # Sorting
     sort_field = {

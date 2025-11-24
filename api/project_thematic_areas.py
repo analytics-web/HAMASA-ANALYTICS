@@ -73,8 +73,8 @@ def get_thematic_areas(
     query = db.query(ProjectThematicAreas).filter(ProjectThematicAreas.is_deleted == False)
 
     # Search across area, title, description
-    if filters.search:
-        search = f"%{filters.search}%"
+    if filters.name:
+        search = f"%{filters.name}%"
         query = query.filter(
             ProjectThematicAreas.area.ilike(search) |
             ProjectThematicAreas.title.ilike(search) |

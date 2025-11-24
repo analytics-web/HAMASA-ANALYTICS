@@ -70,8 +70,8 @@ def get_media_categories(
     query = db.query(MediaCategory).filter(MediaCategory.is_deleted == False)
 
     # Search by name or description
-    if filters.search:
-        search = f"%{filters.search}%"
+    if filters.name:
+        search = f"%{filters.name}%"
         query = query.filter(
             MediaCategory.name.ilike(search) |
             MediaCategory.description.ilike(search)

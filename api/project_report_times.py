@@ -56,8 +56,8 @@ def list_report_times(
 ):
     query = db.query(ReportTime).filter(ReportTime.is_deleted == False)
 
-    if filters.search:
-        query = query.filter(ReportTime.name.ilike(f"%{filters.search}%"))
+    if filters.name:
+        query = query.filter(ReportTime.name.ilike(f"%{filters.name}%"))
 
     sort_field = getattr(ReportTime, filters.sort_by, ReportTime.created_at)
     query = query.order_by(

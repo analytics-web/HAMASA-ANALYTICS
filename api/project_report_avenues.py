@@ -57,7 +57,7 @@ def list_report_avenues(
 ):
     query = db.query(ReportAvenue).filter(ReportAvenue.is_deleted == False)
 
-    if filters.search:
+    if filters.name:
         query = query.filter(ReportAvenue.name.ilike(f"%{filters.search}%"))
 
     sort_field = getattr(ReportAvenue, filters.sort_by, ReportAvenue.created_at)
