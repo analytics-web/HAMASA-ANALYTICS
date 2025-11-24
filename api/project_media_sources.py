@@ -156,6 +156,36 @@ def get_media_sources(
 
     return paginate_queryset_list(results, page, page_size, base_url)
 
+#-------------------------------------------------------------------
+# Get MEDIA SOURCE by ID
+#-------------------------------------------------------------------
+@router.get("/media-sources/{id}", response_model=MediaSourceOut)
+def get_media_source(
+    id: uuid.UUID,
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(MediaSource).filter(
+        MediaSource.id == id,
+        MediaSource.is_deleted == False
+    ).first()
+
+    if not item:
+        raise HTTPException(404, "Media source not found")
+
+    return MediaSourceOut(
+        id=item.id,
+        name=item.name,
+        category_name=ProjectMediaCategory(item.category.name)
+    )
+
+
 
 # ------------------------------------------------------------------
 # UPDATE MEDIA SOURCE

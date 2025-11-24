@@ -91,16 +91,27 @@ def get_media_categories(
 # get media category by id
 #------------------------------
 @router.get("/media-categories/{id}", response_model=MediaCategoryOut)
-def get_media_category(id: uuid.UUID, db: Session = Depends(get_db)):
-    category = db.query(MediaCategory).filter(
+def get_media_category(
+    id: uuid.UUID,
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(MediaCategory).filter(
         MediaCategory.id == id,
         MediaCategory.is_deleted == False
     ).first()
 
-    if not category:
+    if not item:
         raise HTTPException(404, "Media category not found")
 
-    return category
+    return item
+
 
 
 #------------------------------

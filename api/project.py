@@ -206,6 +206,34 @@ def get_projects(
     }
 
 
+# -------------------------------------------------------
+# GET SINGLE PROJECT (SAFE OUTPUT)
+# -------------------------------------------------------
+@router.get("/{uid}/", response_model=ProjectOutSafe)
+def get_project(
+    uid: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+            UserRole.reviewer,
+            UserRole.data_clerk,
+            UserRole.org_user
+        ])
+    ),
+):
+
+    project = db.query(Project).filter(
+        Project.id == uid,
+        Project.is_deleted == False
+    ).first()
+
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    return ProjectOutSafe.from_model(project)
+
 
 # -------------------------------------------------------
 # UPDATE PROJECT (FULL SAFE)

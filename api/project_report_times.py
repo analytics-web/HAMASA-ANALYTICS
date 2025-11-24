@@ -67,6 +67,33 @@ def list_report_times(
     base_url = str(request.url).split("?")[0]
     return paginate_queryset(query, page, page_size, base_url, ReportTimeOut)
 
+
+#------------------------------
+# Get one report time
+#------------------------------
+@router.get("/report-times/{id}", response_model=ReportTimeOut)
+def get_report_time(
+    id: uuid.UUID,
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(ReportTime).filter(
+        ReportTime.id == id,
+        ReportTime.is_deleted == False
+    ).first()
+
+    if not item:
+        raise HTTPException(404, "Report time not found")
+
+    return item
+
+
 #------------------------------
 # Update report time
 #------------------------------

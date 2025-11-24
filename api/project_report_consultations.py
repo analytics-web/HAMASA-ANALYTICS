@@ -70,6 +70,26 @@ def list_report_consultations(
 
 
 #------------------------------
+# Get report consultation by ID
+#------------------------------
+@router.get("/report-consultations/{id}", response_model=ReportConsultationOut)
+def get_report_consultation(
+    id: uuid.UUID,
+    current_user=Depends(require_role([UserRole.super_admin])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(ReportConsultation).filter(
+        ReportConsultation.id == id,
+        ReportConsultation.is_deleted == False
+    ).first()
+
+    if not item:
+        raise HTTPException(404, "Report consultation not found")
+
+    return item
+
+
+#------------------------------
 # Update report consultation
 #------------------------------
 @router.patch("/report-consultations/{id}", response_model=ReportConsultationOut)

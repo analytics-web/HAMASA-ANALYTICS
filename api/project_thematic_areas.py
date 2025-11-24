@@ -96,16 +96,27 @@ def get_thematic_areas(
 # get thematic area by id
 #------------------------------
 @router.get("/thematic-areas/{id}", response_model=ProjectThematicAreaOut)
-def get_thematic_area(id: uuid.UUID, db: Session = Depends(get_db)):
-    area = db.query(ProjectThematicAreas).filter(
+def get_thematic_area(
+    id: uuid.UUID,
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(ProjectThematicAreas).filter(
         ProjectThematicAreas.id == id,
         ProjectThematicAreas.is_deleted == False
     ).first()
 
-    if not area:
+    if not item:
         raise HTTPException(404, "Thematic area not found")
 
-    return area
+    return item
+
 
 #------------------------------
 # update thematic area

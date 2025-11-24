@@ -62,13 +62,13 @@ class UserOut(BaseModel):
     last_name: str
     phone_number: str
     gender: Gender
-    password: str
     role: UserRole = UserRole.org_user
     is_active: bool = False
     email: str | None = None
 
     class Config:
         from_attributes = True
+
 
 class UserResponse(BaseModel):
     id: UUID

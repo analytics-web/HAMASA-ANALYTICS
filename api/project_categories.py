@@ -90,17 +90,28 @@ def get_categories(
 #------------------------------
 # get category by id
 #------------------------------
-@router.get("/categories/{category_id}", response_model=ProjectCategoryOut)
-def get_category(category_id: uuid.UUID, db: Session = Depends(get_db)):
-    category = db.query(ProjectCategory).filter(
-        ProjectCategory.id == category_id,
+@router.get("/categories/{id}", response_model=ProjectCategoryOut)
+def get_project_category(
+    id: uuid.UUID,
+    current_user=Depends(require_role([
+        UserRole.super_admin,
+        UserRole.org_admin,
+        UserRole.reviewer,
+        UserRole.data_clerk,
+        UserRole.org_user
+    ])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(ProjectCategory).filter(
+        ProjectCategory.id == id,
         ProjectCategory.is_deleted == False
     ).first()
 
-    if not category:
-        raise HTTPException(404, "Category not found")
+    if not item:
+        raise HTTPException(404, "Project category not found")
 
-    return category
+    return item
+
 
 
 

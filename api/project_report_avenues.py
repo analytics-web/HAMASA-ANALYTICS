@@ -69,6 +69,26 @@ def list_report_avenues(
     return paginate_queryset(query, page, page_size, base_url, ReportAvenueOut)
 
 
+#-----------------------------
+# get report avenue by id
+#------------------------------
+@router.get("/report-avenues/{id}", response_model=ReportAvenueOut)
+def get_report_avenue(
+    id: uuid.UUID,
+    current_user=Depends(require_role([UserRole.super_admin])),
+    db: Session = Depends(get_db)
+):
+    item = db.query(ReportAvenue).filter(
+        ReportAvenue.id == id,
+        ReportAvenue.is_deleted == False
+    ).first()
+
+    if not item:
+        raise HTTPException(404, "Report avenue not found")
+
+    return item
+
+
 #------------------------------
 # Update report avenue
 #------------------------------

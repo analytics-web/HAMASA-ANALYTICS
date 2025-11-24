@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
-from api import auth, client, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report_avenues, project_report_consultations, project_report_times, project_thematic_areas
+from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report_avenues, project_report_consultations, project_report_times, project_thematic_areas
 from db import engine
 from api import hamasa_user
 from models.base import Base
@@ -98,13 +98,14 @@ async def shutdown_event():
     # Close Redis connection
     await FastAPILimiter.close()
 
-@app.get("/")
-def root():
-    return {"message": "Api is running"}
+# @app.get("/")
+# def root():
+#     return {"message": "Api is running"}
 
 
 app.include_router(auth.router, prefix="/hamasa-api/v1", tags=["Auth"])
 app.include_router(client.router, prefix="/hamasa-api/v1", tags=["Clients"])
+app.include_router(client_user.router, prefix="/hamasa-api/v1", tags=["Client Users "])
 app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Hamasa Users"])
 app.include_router(project_categories.router, prefix="/hamasa-api/v1", tags=["Project Categories"])
 # app.include_router(project_thematic_areas.router, prefix="/hamasa-api/v1", tags=["Project Thematic Areas"])
