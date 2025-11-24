@@ -231,7 +231,18 @@ def get_client(
     if not client:
         raise HTTPException(404, "Client not found")
 
-    return client
+    # Split contact_person → first_name & last_name
+    first_name, last_name = split_contact_person(client.contact_person)
+
+    return ClientOut(
+        id=client.id,
+        name_of_organisation=client.name_of_organisation,
+        country=client.country,
+        phone_number=client.phone_number,
+        email=client.email,
+        first_name=first_name,
+        last_name=last_name
+    )
 
 #------------------------ 
 # update client details 
