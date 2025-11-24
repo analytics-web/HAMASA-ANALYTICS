@@ -132,7 +132,7 @@ def createClient(
     # 4. Create Org Admin User for the New Client
     # -----------------------------------------------------
 
-    plain_password = "12345678"  # replace with generate_password()
+    plain_password = generate_password()
 
     hashed_password = hash_password(plain_password)
 

@@ -12,9 +12,11 @@ from models.client_user import ClientUser
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
 from schemas.project import (
+    ALLOWED_STATUS_TRANSITIONS,
     ProjectCreate,
     ProjectFilters,
     ProjectOutSafe,
+    ProjectStatusUpdate,
     ProjectUpdate,
 )
 from models.project import (
@@ -235,6 +237,7 @@ def get_project(
     return ProjectOutSafe.from_model(project)
 
 
+
 # -------------------------------------------------------
 # UPDATE PROJECT (FULL SAFE)
 # -------------------------------------------------------
@@ -325,6 +328,53 @@ def update_project(
 
     return ProjectOutSafe.from_model(project)
 
+
+# -------------------------------------------------------
+# UPDATE PROJECT STATUS WITH CONTROLLED TRANSITIONS
+# -------------------------------------------------------
+@router.patch("/{uid}/status/", response_model=ProjectOutSafe)
+def update_project_status(
+    uid: str,
+    payload: ProjectStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+            UserRole.reviewer,
+        ])
+    ),
+):
+
+    project = db.query(Project).filter(
+        Project.id == uid,
+        Project.is_deleted == False
+    ).first()
+
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    current_status = project.status.value
+    new_status = payload.status.value
+
+    # Check transition rule
+    allowed_next = ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
+
+    if new_status not in allowed_next:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid status transition: {current_status} → {new_status}. "
+                f"Allowed transitions: {', '.join(allowed_next) or 'none'}"
+            )
+        )
+
+    # Apply update
+    project.status = payload.status
+    db.commit()
+    db.refresh(project)
+
+    return ProjectOutSafe.from_model(project)
 
 
 # -------------------------------------------------------

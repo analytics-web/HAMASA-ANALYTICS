@@ -31,6 +31,7 @@ ENUM_TO_DB = {
     ProjectMediaCategory.radio: "Radio",
     ProjectMediaCategory.tv: "TV",
     ProjectMediaCategory.print_media: "Print Media",
+    ProjectMediaCategory.online_media: "Online Media",
     ProjectMediaCategory.others: "Others",
 }
 

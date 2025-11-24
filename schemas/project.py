@@ -6,6 +6,26 @@ from typing import List, Optional
 from models.enums import ProjectMediaCategory, ProjectStatus
 from models.project import MediaSource, Project, ProjectThematicAreas
 
+
+
+
+
+ALLOWED_STATUS_TRANSITIONS = {
+    "draft": {"submitted"},
+    "submitted": {"review"},
+    "review": {"in_progress", "active"},
+    "in_progress": {"active", "completed"},
+    "active": {"completed", "archived"},
+    "completed": {"archived"},
+    "archived": set(),  
+}
+
+
+
+
+
+
+
 class ProjectCategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -21,7 +41,7 @@ class ProjectCategoryOut(ProjectCategoryBase):
 
 
 class CategoryFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"  # asc or desc
 
@@ -57,7 +77,7 @@ class ProjectThematicAreaUpdate(BaseModel):
     monitoring_objectives: Optional[List[str]] = None
 
 class ThematicAreaFilters(BaseModel):
-    search: Optional[str] = None          # search in area/title/description
+    name: Optional[str] = None          # name in area/title/description
     sort_by: Optional[str] = "created_at" # default sort field
     sort_order: Optional[str] = "desc"    # asc or desc
 
@@ -81,7 +101,7 @@ class MediaCategoryOut(MediaCategoryBase):
         from_attributes = True
 
 class MediaCategoryFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"
 
@@ -112,7 +132,7 @@ class MediaSourceOut(BaseModel):
 
 
 class MediaSourceFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     category_id: Optional[uuid.UUID] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"
@@ -144,7 +164,7 @@ class ReportAvenueOut(ReportAvenueBase):
         from_attributes = True
 
 class ReportAvenueFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"
 
@@ -170,7 +190,7 @@ class ReportTimeOut(ReportTimeBase):
         from_attributes = True
 
 class ReportTimeFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"
 
@@ -196,7 +216,7 @@ class ReportConsultationOut(ReportConsultationBase):
         from_attributes = True
 
 class ReportConsultationFilters(BaseModel):
-    search: Optional[str] = None
+    name: Optional[str] = None
     sort_by: Optional[str] = "created_at"
     sort_order: Optional[str] = "desc"
 
@@ -627,3 +647,11 @@ class ProjectOutSafe(BaseModel):
                 for c in project.report_consultations
             ],
         )
+
+
+
+#------------------------------------------------------
+# Project Status Update Schema
+#------------------------------------------------------
+class ProjectStatusUpdate(BaseModel):
+    status: ProjectStatus
