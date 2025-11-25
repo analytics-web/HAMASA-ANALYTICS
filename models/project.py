@@ -69,7 +69,7 @@ class Project(Base):
     title = Column(String(50), nullable=False, index=True)
     description = Column(String(500), nullable=False)
     client_id = Column(UUID(as_uuid=True), ForeignKey("client.id", ondelete="CASCADE"), nullable=False)
-    status = Column(Enum(ProjectStatus), default=ProjectStatus.draft, nullable=False)
+    status = Column(Enum(ProjectStatus), default=ProjectStatus.draft.value, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)   

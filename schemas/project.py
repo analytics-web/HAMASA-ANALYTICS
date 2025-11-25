@@ -485,6 +485,7 @@ class ProjectOutSafe(BaseModel):
             title=model.title,
             description=model.description,
             client_id=model.client_id,
+            status=model.status,
 
             categories=[
                 ProjectCategoryOut.model_validate(c)
@@ -535,6 +536,134 @@ class ProjectOutSafe(BaseModel):
 
 
 
+# # -----------------------------
+# # Safe Media Source Output
+# # -----------------------------
+# class MediaSourceOutSafe(BaseModel):
+#     id: UUID4
+#     name: str
+#     category_name: ProjectMediaCategory
+
+#     @staticmethod
+#     def from_model(ms):
+#         return MediaSourceOutSafe(
+#             id=ms.id,
+#             name=ms.name,
+#             # model.category.name is already the correct string: Radio, Social Media, etc.
+#             category_name=ProjectMediaCategory(ms.category.name)
+#         )
+
+
+
+# # -----------------------------
+# # Safe Thematic Area Output
+# # -----------------------------
+# class ProjectThematicAreaOutSafe(BaseModel):
+#     id: UUID4
+#     area: str
+#     title: str
+#     description: Optional[str]
+#     monitoring_objectives: List[str]
+
+#     @staticmethod
+#     def from_model(ta):
+#         raw = ta.monitoring_objective
+
+#         if isinstance(raw, list):
+#             mo = raw
+#         elif isinstance(raw, str):
+#             try:
+#                 loaded = json.loads(raw)
+#                 mo = loaded if isinstance(loaded, list) else [loaded]
+#             except:
+#                 mo = [raw]
+#         else:
+#             mo = []
+
+#         return ProjectThematicAreaOutSafe(
+#             id=ta.id,
+#             area=ta.area,
+#             title=ta.title,
+#             description=ta.description,
+#             monitoring_objectives=mo
+#         )
+
+
+# # -----------------------------
+# # Safe Project Output
+# # -----------------------------
+# class ProjectOutSafe(BaseModel):
+#     id: UUID4
+#     title: str
+#     description: str
+#     client_id: UUID4
+#     status: ProjectStatus
+
+#     categories: List[ProjectCategoryOut]
+#     collaborators: List[ClientUserOut]
+#     media_sources: List[MediaSourceOutSafe]
+#     thematic_areas: List[ProjectThematicAreaOutSafe]
+
+#     report_avenues: List[ReportAvenueOut]
+#     report_times: List[ReportTimeOut]
+#     report_consultations: List[ReportConsultationOut]
+
+#     @staticmethod
+#     def from_model(project: Project):
+
+#         return ProjectOutSafe(
+#             id=project.id,
+#             title=project.title,
+#             description=project.description,
+#             client_id=project.client_id,
+#             status=project.status,
+
+#             categories=[
+#                 ProjectCategoryOut.model_validate(c)
+#                 for c in project.categories
+#             ],
+
+#             collaborators=[
+#                 ClientUserOut.model_validate(c)
+#                 for c in project.collaborators
+#             ],
+
+#             thematic_areas=[
+#                 ProjectThematicAreaOutSafe.from_model(t)
+#                 for t in project.thematic_areas
+#             ],
+
+#             media_sources=[
+#                 MediaSourceOutSafe.from_model(link.media_source)
+#                 for link in project.media_sources_link
+#             ],
+
+#             report_avenues=[
+#                 ReportAvenueOut.model_validate(a)
+#                 for a in project.report_avenues
+#             ],
+
+#             report_times=[
+#                 ReportTimeOut.model_validate(t)
+#                 for t in project.report_times
+#             ],
+
+#             report_consultations=[
+#                 ReportConsultationOut.model_validate(c)
+#                 for c in project.report_consultations
+#             ],
+#         )
+
+
+
+# #------------------------------------------------------
+# # Project Status Update Schema
+# #------------------------------------------------------
+class ProjectStatusUpdate(BaseModel):
+    status: ProjectStatus
+
+
+
 # -----------------------------
 # Safe Media Source Output
 # -----------------------------
@@ -543,9 +672,9 @@ class MediaSourceOutSafe(BaseModel):
     name: str
     category_name: ProjectMediaCategory
 
-    @staticmethod
-    def from_model(ms):
-        return MediaSourceOutSafe(
+    @classmethod
+    def from_model(cls, ms):
+        return cls(
             id=ms.id,
             name=ms.name,
             category_name=ProjectMediaCategory(ms.category.name)
@@ -559,26 +688,25 @@ class ProjectThematicAreaOutSafe(BaseModel):
     id: UUID4
     area: str
     title: str
-    description: str | None
+    description: Optional[str]
     monitoring_objectives: List[str]
 
-    
-    @staticmethod
-    def from_model(ta):
-        # database stores it as string
+    @classmethod
+    def from_model(cls, ta):
         raw = ta.monitoring_objective
 
         if isinstance(raw, list):
             mo = raw
         elif isinstance(raw, str):
             try:
-                mo = json.loads(raw)
+                loaded = json.loads(raw)
+                mo = loaded if isinstance(loaded, list) else [loaded]
             except:
-                mo = [raw]  # fallback: wrap string into list
+                mo = [raw]
         else:
             mo = []
 
-        return ProjectThematicAreaOutSafe(
+        return cls(
             id=ta.id,
             area=ta.area,
             title=ta.title,
@@ -606,55 +734,43 @@ class ProjectOutSafe(BaseModel):
     report_times: List[ReportTimeOut]
     report_consultations: List[ReportConsultationOut]
 
-    @staticmethod
-    def from_model(project: Project):
+    @classmethod
+    def from_model(cls, project: Project):
 
-        return ProjectOutSafe(
+        return cls(
             id=project.id,
             title=project.title,
             description=project.description,
             client_id=project.client_id,
+            status=project.status,
 
             categories=[
                 ProjectCategoryOut.model_validate(c)
                 for c in project.categories
             ],
-
             collaborators=[
                 ClientUserOut.model_validate(c)
                 for c in project.collaborators
             ],
-
             thematic_areas=[
                 ProjectThematicAreaOutSafe.from_model(t)
                 for t in project.thematic_areas
             ],
-
             media_sources=[
                 MediaSourceOutSafe.from_model(ms)
                 for ms in project.media_sources
             ],
 
             report_avenues=[
-                ReportAvenueOut.model_validate(r)
-                for r in project.report_avenues
+                ReportAvenueOut.model_validate(a)
+                for a in project.report_avenues
             ],
-
             report_times=[
                 ReportTimeOut.model_validate(t)
                 for t in project.report_times
             ],
-
             report_consultations=[
                 ReportConsultationOut.model_validate(c)
                 for c in project.report_consultations
             ],
         )
-
-
-
-#------------------------------------------------------
-# Project Status Update Schema
-#------------------------------------------------------
-class ProjectStatusUpdate(BaseModel):
-    status: ProjectStatus

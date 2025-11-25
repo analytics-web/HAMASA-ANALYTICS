@@ -9,6 +9,7 @@ from sqlalchemy import func
 from api.deps import require_role
 from db import get_db
 from models.client_user import ClientUser
+from models.enums import ProjectStatus
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
 from schemas.project import (
@@ -50,91 +51,94 @@ def create_project(
     ),
 ):
 
-    # -------------------------------
-    # Create main project
-    # -------------------------------
-    project = Project(
-        title=payload.title,
-        description=payload.description,
-        client_id=payload.client_id
-    )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-
-    # -------------------------------
-    # Categories (many-to-many)
-    # -------------------------------
-    if payload.category_ids:
-        project.categories = db.query(ProjectCategory).filter(
-            ProjectCategory.id.in_(payload.category_ids)
-        ).all()
-
-    # -------------------------------
-    # Thematic Areas (create new rows)
-    # -------------------------------
-    created_thematic_areas = []
-    for ta in payload.thematic_areas:
-        new_ta = ProjectThematicAreas(
-            area=ta.area,
-            title=ta.title,
-            description=ta.description,
-            monitoring_objective=ta.monitoring_objectives,
+    try:
+        # ------------------------------------------------------------------
+        # STEP 1 — Create Base Project
+        # ------------------------------------------------------------------
+        project = Project(
+            title=payload.title,
+            description=payload.description,
+            client_id=payload.client_id,
+            status=ProjectStatus.draft   # DEFAULT STATUS
         )
-        db.add(new_ta)
-        created_thematic_areas.append(new_ta)
+        db.add(project)
+        db.flush()   # ensures project.id exists without commit
 
-    db.commit()
+        # ------------------------------------------------------------------
+        # STEP 2 — Assign Categories
+        # ------------------------------------------------------------------
+        if payload.category_ids:
+            project.categories = db.query(ProjectCategory).filter(
+                ProjectCategory.id.in_(payload.category_ids)
+            ).all()
 
-    for t in created_thematic_areas:
-        db.refresh(t)
-
-    project.thematic_areas.extend(created_thematic_areas)
-
-    # -------------------------------
-    # Collaborators (many-to-many)
-    # -------------------------------
-    if payload.collaborator_ids:
-        project.collaborators = db.query(ClientUser).filter(
-            ClientUser.id.in_(payload.collaborator_ids)
-        ).all()
-
-    # -------------------------------
-    # Media Sources (junction table)
-    # -------------------------------
-    if payload.media_source_ids:
-        for ms_id in payload.media_source_ids:
-            link = ProjectMediaSources(
-                project_id=project.id,
-                media_source_id=ms_id
+        # ------------------------------------------------------------------
+        # STEP 3 — Create Thematic Areas
+        # ------------------------------------------------------------------
+        created_ta = []
+        for ta in payload.thematic_areas:
+            new_ta = ProjectThematicAreas(
+                area=ta.area,
+                title=ta.title,
+                description=ta.description,
+                monitoring_objective=json.dumps(ta.monitoring_objectives)
+                if isinstance(ta.monitoring_objectives, list)
+                else ta.monitoring_objectives
             )
-            db.add(link)
+            db.add(new_ta)
+            created_ta.append(new_ta)
 
-    # -------------------------------
-    # Report avenues, times, consultations
-    # -------------------------------
-    if payload.report_avenue_ids:
-        project.report_avenues = db.query(ReportAvenue).filter(
-            ReportAvenue.id.in_(payload.report_avenue_ids)
-        ).all()
+        db.flush()
 
-    if payload.report_time_ids:
-        project.report_times = db.query(ReportTime).filter(
-            ReportTime.id.in_(payload.report_time_ids)
-        ).all()
+        project.thematic_areas.extend(created_ta)
 
-    if payload.report_consultation_ids:
-        project.report_consultations = db.query(ReportConsultation).filter(
-            ReportConsultation.id.in_(payload.report_consultation_ids)
-        ).all()
+        # ------------------------------------------------------------------
+        # STEP 4 — Collaborators
+        # ------------------------------------------------------------------
+        if payload.collaborator_ids:
+            project.collaborators = db.query(ClientUser).filter(
+                ClientUser.id.in_(payload.collaborator_ids)
+            ).all()
 
-    db.commit()
-    db.refresh(project)
+        # ------------------------------------------------------------------
+        # STEP 5 — Media Sources (junction table)
+        # ------------------------------------------------------------------
+        if payload.media_source_ids:
+            links = [
+                ProjectMediaSources(project_id=project.id, media_source_id=ms_id)
+                for ms_id in payload.media_source_ids
+            ]
+            db.add_all(links)
 
-    # -------------------------------
-    # RETURN SAFE SERIALIZED VERSION
-    # -------------------------------
-    return ProjectOutSafe.from_model(project)
+        # ------------------------------------------------------------------
+        # STEP 6 — Report Options
+        # ------------------------------------------------------------------
+        if payload.report_avenue_ids:
+            project.report_avenues = db.query(ReportAvenue).filter(
+                ReportAvenue.id.in_(payload.report_avenue_ids)
+            ).all()
+
+        if payload.report_time_ids:
+            project.report_times = db.query(ReportTime).filter(
+                ReportTime.id.in_(payload.report_time_ids)
+            ).all()
+
+        if payload.report_consultation_ids:
+            project.report_consultations = db.query(ReportConsultation).filter(
+                ReportConsultation.id.in_(payload.report_consultation_ids)
+            ).all()
+
+        # ------------------------------------------------------------------
+        # FINALIZE
+        # ------------------------------------------------------------------
+        db.commit()
+        db.refresh(project)
+
+        return ProjectOutSafe.from_model(project)
+
+    except Exception as e:
+        db.rollback()
+        raise
 
 
 # -------------------------------------------------------
