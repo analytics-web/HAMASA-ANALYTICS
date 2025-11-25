@@ -2,6 +2,7 @@
 # PROJECT CREATE / UPDATE (SAFE, FIXED, VALIDATION-PROOF)
 # ------------------------------------------------------------
 
+import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -50,69 +51,86 @@ def create_project(
         ])
     ),
 ):
-
     try:
-        # ------------------------------------------------------------------
-        # STEP 1 — Create Base Project
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
+        # STEP 0 — Determine client_id based on user role
+        # -------------------------------------------------------------
+        if current_user["role"] == UserRole.super_admin:
+            # super admin may specify any client_id (payload already has it)
+            client_id = payload.client_id
+
+        elif current_user["role"] == UserRole.org_admin:
+            # org admin MUST use their own assigned client_id
+            client_id = current_user["client_id"]
+
+        else:
+            raise HTTPException(403, "You are not allowed to create projects")
+
+        # -------------------------------------------------------------
+        # STEP 1 — Create base project
+        # -------------------------------------------------------------
         project = Project(
             title=payload.title,
             description=payload.description,
-            client_id=payload.client_id,
-            status=ProjectStatus.draft   # DEFAULT STATUS
+            client_id=client_id,
+            status=ProjectStatus.draft
         )
-        db.add(project)
-        db.flush()   # ensures project.id exists without commit
 
-        # ------------------------------------------------------------------
-        # STEP 2 — Assign Categories
-        # ------------------------------------------------------------------
+        db.add(project)
+        db.flush()  # ensures project.id is generated
+
+        # -------------------------------------------------------------
+        # STEP 2 — Categories
+        # -------------------------------------------------------------
         if payload.category_ids:
             project.categories = db.query(ProjectCategory).filter(
                 ProjectCategory.id.in_(payload.category_ids)
             ).all()
 
-        # ------------------------------------------------------------------
-        # STEP 3 — Create Thematic Areas
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
+        # STEP 3 — Thematic Areas
+        # -------------------------------------------------------------
         created_ta = []
         for ta in payload.thematic_areas:
             new_ta = ProjectThematicAreas(
                 area=ta.area,
                 title=ta.title,
                 description=ta.description,
-                monitoring_objective=json.dumps(ta.monitoring_objectives)
-                if isinstance(ta.monitoring_objectives, list)
-                else ta.monitoring_objectives
+                monitoring_objective=(
+                    json.dumps(ta.monitoring_objectives)
+                    if isinstance(ta.monitoring_objectives, list)
+                    else ta.monitoring_objectives
+                )
             )
             db.add(new_ta)
             created_ta.append(new_ta)
 
         db.flush()
-
         project.thematic_areas.extend(created_ta)
 
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
         # STEP 4 — Collaborators
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
         if payload.collaborator_ids:
             project.collaborators = db.query(ClientUser).filter(
                 ClientUser.id.in_(payload.collaborator_ids)
             ).all()
 
-        # ------------------------------------------------------------------
-        # STEP 5 — Media Sources (junction table)
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
+        # STEP 5 — Media Sources (junction)
+        # -------------------------------------------------------------
         if payload.media_source_ids:
-            links = [
-                ProjectMediaSources(project_id=project.id, media_source_id=ms_id)
+            db.add_all([
+                ProjectMediaSources(
+                    project_id=project.id,
+                    media_source_id=ms_id
+                )
                 for ms_id in payload.media_source_ids
-            ]
-            db.add_all(links)
+            ])
 
-        # ------------------------------------------------------------------
-        # STEP 6 — Report Options
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
+        # STEP 6 — Report settings
+        # -------------------------------------------------------------
         if payload.report_avenue_ids:
             project.report_avenues = db.query(ReportAvenue).filter(
                 ReportAvenue.id.in_(payload.report_avenue_ids)
@@ -128,15 +146,15 @@ def create_project(
                 ReportConsultation.id.in_(payload.report_consultation_ids)
             ).all()
 
-        # ------------------------------------------------------------------
-        # FINALIZE
-        # ------------------------------------------------------------------
+        # -------------------------------------------------------------
+        # FINAL COMMIT
+        # -------------------------------------------------------------
         db.commit()
         db.refresh(project)
 
         return ProjectOutSafe.from_model(project)
 
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise
 

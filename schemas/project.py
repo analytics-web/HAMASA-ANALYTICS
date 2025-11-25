@@ -261,7 +261,7 @@ class ProjectBase(BaseModel):
 class ProjectCreate(BaseModel):
     title: str
     description: str | None
-    client_id: UUID4
+    client_id: Optional[UUID4]
     category_ids: list[UUID4] = []
     thematic_areas: list[ProjectThematicAreaCreate] = []  
     collaborator_ids: list[UUID4] = []
