@@ -4,12 +4,15 @@ import sentry_sdk
 from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report_avenues, project_report_consultations, project_report_times, project_thematic_areas
 from db import engine
 from api import hamasa_user
+from db.db import SessionLocal
 from models.base import Base
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 from contextlib import asynccontextmanager
 import logging
 from fastapi.openapi.utils import get_openapi
+
+from utils.project_helpers import seed_report_consultations, seed_report_times
 # from sentry_sdk.integrations.fastapi import FastAPIIntegration
 
 
@@ -27,7 +30,7 @@ origins = ["*"]
 app = FastAPI(
     title= "Hamasa Analytics",
     description="Hamasa Analytics Backend Apis",
-    version="1.0",
+    version="1.1.0",
     openapi_tags=[
         {"name": "Auth", "description":"Authentication and user management"}
     ],
@@ -90,6 +93,11 @@ async def startup_event():
         encoding="utf-8",
         decode_responses=True
     )
+
+    db = SessionLocal()
+    seed_report_times(db)
+    seed_report_consultations(db)
+    db.close()
     # Initialize FastAPILimiter
     await FastAPILimiter.init(redis_connection)
 

@@ -285,6 +285,7 @@ class ProjectUpdate(BaseModel):
 # ------------------- Output -------------------
 class ProjectOut(ProjectBase):
     id: UUID4
+    status:ProjectStatus
     categories: List[ProjectCategoryOut] = []
     thematic_areas: List[ProjectThematicAreaOut] = []
     collaborators: List[ClientUserOut] = []
@@ -467,6 +468,7 @@ class ProjectOutSafe(BaseModel):
     title: str
     description: str
     client_id: UUID4
+    status: ProjectStatus
 
     categories: List[ProjectCategoryOut] = []
     thematic_areas: List[ProjectThematicAreaOutSafe] = []
@@ -593,6 +595,7 @@ class ProjectOutSafe(BaseModel):
     title: str
     description: str
     client_id: UUID4
+    status: ProjectStatus
 
     categories: List[ProjectCategoryOut]
     collaborators: List[ClientUserOut]

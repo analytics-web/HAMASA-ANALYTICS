@@ -52,6 +52,7 @@ def normalize_category(db_value: str) -> ProjectMediaCategory:
 # CREATE MEDIA SOURCE
 # ------------------------------------------------------------------
 @router.post("/media-sources/", response_model=MediaSourceOut)
+@router.post("/media-sources/", response_model=MediaSourceOut)
 def create_media_source(
     source: MediaSourceBase,
     current_user=Depends(require_role([
@@ -63,31 +64,37 @@ def create_media_source(
     ])),
     db: Session = Depends(get_db),
 ):
-    # Map enum -> db string
-    db_category_name = ENUM_TO_DB[source.category_name]
+    # Enum → actual string (already matches DB)
+    db_category_name = source.category_name.value
 
-    # Find category
+    # Find category by name (case-insensitive)
     category = db.query(MediaCategory).filter(
         func.lower(MediaCategory.name) == func.lower(db_category_name),
-        MediaCategory.is_deleted == False,
+        MediaCategory.is_deleted == False
     ).first()
 
     if not category:
-        raise HTTPException(404, f"Media category '{source.category_name}' not found")
+        raise HTTPException(
+            404,
+            f"Media category '{db_category_name}' not found in database"
+        )
 
-    # Check duplicates
+    # Duplicate name check
     exists = db.query(MediaSource).filter(
         func.lower(MediaSource.name) == func.lower(source.name),
         MediaSource.category_id == category.id,
-        MediaSource.is_deleted == False,
+        MediaSource.is_deleted == False
     ).first()
 
     if exists:
-        raise HTTPException(400, "Media source already exists in this category")
+        raise HTTPException(
+            400,
+            "Media source already exists in this category"
+        )
 
     new_source = MediaSource(
         name=source.name.strip(),
-        category_id=category.id,
+        category_id=category.id
     )
 
     db.add(new_source)
@@ -97,7 +104,7 @@ def create_media_source(
     return MediaSourceOut(
         id=new_source.id,
         name=new_source.name,
-        category_name=source.category_name,
+        category_name=source.category_name
     )
 
 

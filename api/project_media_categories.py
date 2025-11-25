@@ -1,12 +1,7 @@
-import csv
-from io import StringIO
-from fastapi import APIRouter, Depends, HTTPException, Request, requests, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List
 from api.deps import require_role
-from models.ml_analysis_result import MLAnalysisResult
-from models.project import MediaCategory, Project,ProjectCategory, ProjectThematicAreas, MediaSource, ReportAvenue, ReportTime, ReportConsultation
-from models.client_user import ClientUser
+from models.project import MediaCategory
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
 from schemas.project import *

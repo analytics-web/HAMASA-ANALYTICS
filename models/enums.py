@@ -22,3 +22,27 @@ class ProjectMediaCategory(str, Enum):
     print_media = "Print Media"
     online_media = "Online Media"
     others = "Others"
+
+
+class ProjectReportAVenues(str,Enum):
+    web = "Web"
+    mobile = "Mobile"
+    
+
+class ProjectReportTimes(str, Enum):
+    daily = "Daily"
+    weekly = "Weekly"
+    monthly = "Monthly"
+    quarterly = "Quarterly"
+    bi_annually = "Bi-Annually"
+    annually = "Annually"
+
+
+class ProjectReportConsultations(str, Enum):
+    daily = "Daily"
+    weekly = "Weekly"
+    monthly = "Monthly"
+    quarterly = "Quarterly"
+    bi_annually = "Bi-Annually"
+    annually = "Annually"
+

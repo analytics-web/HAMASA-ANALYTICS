@@ -1,11 +1,12 @@
 import csv
 from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, Request, requests, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 from api.deps import require_role
-from models.ml_analysis_result import MLAnalysisResult
-from models.project import MediaCategory, Project,ProjectCategory, ProjectThematicAreas, MediaSource, ReportAvenue, ReportTime, ReportConsultation
+from models.enums import ProjectReportTimes
+from models.project import ReportTime
 from models.client_user import ClientUser
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
@@ -15,12 +16,28 @@ from utils.pagination import paginate_queryset
 
 router = APIRouter(prefix="/projects", tags=["Projects Report Times"])
 
+# Enum → DB string
+ENUM_TO_DB = {e: e.value for e in ProjectReportTimes}
+
+# DB string → Enum
+DB_TO_ENUM = {e.value.lower(): e for e in ProjectReportTimes}
+
+
+def normalize_report_time(db_name: str) -> ProjectReportTimes:
+    if not db_name:
+        return ProjectReportTimes.daily  # fallback default
+    return DB_TO_ENUM.get(db_name.lower(), ProjectReportTimes.daily)
+
+
+
+
+
 #--------------------------------------------------------------------------------------------------
 # ---------------------------- Project-Report_Times CRUD Operations -------------------------------
 #--------------------------------------------------------------------------------------------------
 
 #-------------------
-# Report Times
+# Create Report Times
 #-------------------
 @router.post("/report-times/", response_model=ReportTimeOut)
 def create_report_time(
@@ -28,21 +45,30 @@ def create_report_time(
     current_user=Depends(require_role([UserRole.super_admin])),
     db: Session = Depends(get_db)
 ):
+    # Enums determine valid names
+    if data.name not in ProjectReportTimes.__members__.values():
+        raise HTTPException(400, "Invalid report time value")
+
+    db_name = data.name.value
+
+    # Prevent duplicates
     exists = db.query(ReportTime).filter(
-        ReportTime.name.ilike(data.name),
+        func.lower(ReportTime.name) == func.lower(db_name),
         ReportTime.is_deleted == False
     ).first()
 
     if exists:
         raise HTTPException(400, "Report time already exists")
 
-    new_time = ReportTime(name=data.name.strip())
+    new_time = ReportTime(name=db_name)
     db.add(new_time)
     db.commit()
     db.refresh(new_time)
-    return new_time
 
-
+    return ReportTimeOut(
+        id=new_time.id,
+        name=data.name
+    )
 #------------------------------
 # get all report times
 #------------------------------
@@ -59,13 +85,13 @@ def list_report_times(
     if filters.name:
         query = query.filter(ReportTime.name.ilike(f"%{filters.name}%"))
 
-    sort_field = getattr(ReportTime, filters.sort_by, ReportTime.created_at)
     query = query.order_by(
-        sort_field.asc() if filters.sort_order == "asc" else sort_field.desc()
+        ReportTime.created_at.asc()
+        if filters.sort_order == "asc"
+        else ReportTime.created_at.desc()
     )
 
-    base_url = str(request.url).split("?")[0]
-    return paginate_queryset(query, page, page_size, base_url, ReportTimeOut)
+    return paginate_queryset(query, page, page_size, str(request.url).split("?")[0], ReportTimeOut)
 
 
 #------------------------------
@@ -79,19 +105,22 @@ def get_report_time(
         UserRole.org_admin,
         UserRole.reviewer,
         UserRole.data_clerk,
-        UserRole.org_user
+        UserRole.org_user,
     ])),
     db: Session = Depends(get_db)
 ):
-    item = db.query(ReportTime).filter(
+    rtime = db.query(ReportTime).filter(
         ReportTime.id == id,
         ReportTime.is_deleted == False
     ).first()
 
-    if not item:
+    if not rtime:
         raise HTTPException(404, "Report time not found")
 
-    return item
+    return ReportTimeOut(
+        id=rtime.id,
+        name=normalize_report_time(rtime.name)
+    )
 
 
 #------------------------------
@@ -128,6 +157,8 @@ def update_report_time(
     db.refresh(rtime)
     return rtime
 
+# def update_report_time():
+#     raise HTTPException(400, "Report time values cannot be updated (enum-managed)")
 
 #------------------------------
 # Delete report time
@@ -148,4 +179,3 @@ def delete_report_time(
 
     rtime.is_deleted = True
     db.commit()
-    return
