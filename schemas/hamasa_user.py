@@ -4,13 +4,10 @@ from typing import List, Optional
 from datetime import date
 from uuid import UUID
 
+from models.enums import UserRole
+
 # Pydantic-compatible enums (inherit from str for JSON serialization)
-class UserRole(str, Enum):
-    super_admin = "super_admin"
-    reviewer = "reviewer"
-    data_clerk = "data_clerk"
-    org_admin = "org_admin"
-    org_user = "org_user"
+
 
 class Gender(str, Enum):
     male = "male"

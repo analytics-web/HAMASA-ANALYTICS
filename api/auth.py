@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from api.deps import get_current_user
+from api.client import generate_password
+from api.deps import get_current_user, require_role
 from db import SessionLocal,get_db
 from models.client_user import ClientUser
+from models.enums import UserRole
 from models.hamasa_user import HamasaUser as  User
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, oauth2_scheme
 from schemas.hamasa_user import (
@@ -38,6 +40,7 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30))
 
+SERVICE_TOKEN_EXPIRE_DAYS = 365   # 1 year
 
 
 
@@ -103,15 +106,6 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
 
-
-
-
-
-
-
-
-
-
 #---------------- Login ----------------
 @router.post("/login", response_model=Token,
              dependencies=[Depends(RateLimiter(times=5, seconds=60))])  
@@ -154,92 +148,6 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
 
 
 
-# #--------------- staff login --------------------------- #
-# @router.post("/staff/login", response_model=Token)
-# def staff_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-#     # query by email/phone
-#     if "@" in form_data.identifier:
-#         user = db.query(User).filter(User.email == form_data.identifier).first()
-#     else:
-#         user = db.query(User).filter(User.phone_number == form_data.identifier).first()
-
-#     if not user or not verify_password(form_data.password, user.hashed_password):
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-#     # tokens
-#     access_token = create_access_token(
-#         data={
-#             "sub": str(user.id),
-#             "role": user.role,
-#             "email": user.email,
-#             "phone": user.phone_number,
-#         }
-#     )
-
-#     refresh_token = create_refresh_token(
-#         data={
-#             "sub": str(user.id),
-#         }
-#     )
-
-#     return {
-#         "access_token": access_token,
-#         "refresh_token": refresh_token,
-#         "token_type": "bearer",
-#         "user": UserAuth.from_orm(user),
-#     }
-
-
-# # -------------------------- Client Login ---------------------------- #
-# @router.post("/client/login", response_model=Token)
-# def client_login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-
-#     if "@" in form_data.identifier:
-#         user = db.query(ClientUser).filter(ClientUser.email == form_data.identifier).first()
-#     else:
-#         user = db.query(ClientUser).filter(ClientUser.phone_number == form_data.identifier).first()
-
-#     if not user or not verify_password(form_data.password, user.hashed_password):
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-#     # tokens
-#     access_token = create_access_token(
-#         data={
-#             "sub": str(user.id),
-#             "role": user.role,
-#             "email": user.email,
-#             "phone": user.phone_number,
-#         }
-#     )
-
-#     refresh_token = create_refresh_token(
-#         data={
-#             "sub": str(user.id),
-#         }
-#     )
-
-
-#     return {
-#         "access_token": access_token,
-#         "refresh_token": refresh_token,
-#         "token_type": "bearer",
-#         "user": UserAuth.from_orm(user),
-#     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---------------- Refresh Token ----------------
 @router.post("/refresh-token", response_model=Token)
 def refresh_token(
@@ -273,6 +181,59 @@ def refresh_token(
         "token_type": "bearer",
         "user": UserAuth.from_orm(user),
     }
+
+
+
+
+#----------------------------------------------------
+#            Generate Service Token 
+#----------------------------------------------------
+@router.post("/auth/service-token")
+def generate_service_token(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role([UserRole.super_admin]))
+):
+    """
+    Generate a long-lived service token for ML automation.
+    Only super_admin can create it.
+    """
+
+    # 1) Create a dedicated service user if not existing
+    service_user = db.query(User).filter(User.role == UserRole.ml_service).first()
+
+    password = generate_password()
+    hashed_password = hash_password(password)
+
+    if not service_user:
+        service_user = User(
+            first_name="ml",
+            last_name="service",
+            email="ml-service@system.local",
+            phone_number="0000000000",
+            hashed_password = hashed_password,  # Random password
+            gender="other",
+            is_active=True,
+            role=UserRole.ml_service
+        )
+        db.add(service_user)
+        db.commit()
+        db.refresh(service_user)
+
+    # 2) Create long-lived JWT
+    expires = timedelta(days=SERVICE_TOKEN_EXPIRE_DAYS)
+
+    token = create_access_token(
+        data={"sub": str(service_user.id), "role": service_user.role},
+        expires_delta=expires
+    )
+
+    return {
+        "service_token": token,
+        "expires_in_days": SERVICE_TOKEN_EXPIRE_DAYS,
+        "role": service_user.role,
+        "note": "Use this token in ML scripts. Does not require refresh."
+    }
+
 
 
 # ---------------- Logout ----------------

@@ -13,30 +13,75 @@ from schemas.project import *
 from db import get_db
 from utils.pagination import paginate_queryset
 
-router = APIRouter(prefix="/projects", tags=["Project Machine Learning"])
+router = APIRouter(prefix="/projects/projects_ml", tags=["Project Machine Learning"])
 
-#-----------------------------------
-# Get Project Details Needed for ML
-#-----------------------------------
-@router.get("/{uid}/ml-details/", response_model=ProjectMLDetailsOut)
-def get_project_ml_details(
-    uid: UUID4,
+
+# -------------------------------------------------------
+# GET ALL PROJECTS THAT ARE ACTIVE FOR ANALYTICS
+# -------------------------------------------------------
+@router.get("/", response_model=PaginatedResponse, dependencies=[Depends(require_role([
+                 UserRole.super_admin,
+                 UserRole.reviewer,
+             ]))])
+def get_active_projects(
+    request: Request,
+    filters: ProjectFilters = Depends(),
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role([
-        UserRole.super_admin,
-        UserRole.reviewer,
-    ]))
 ):
-    project = db.query(Project).filter(Project.id == uid).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    return ProjectMLDetailsOut(
-        id=project.id,
-        title=project.title,
-        thematic_areas=[ta.area for ta in project.thematic_areas],
-        media_sources=[ms.name for ms in project.media_sources],
-    )
+
+    query = db.query(Project).filter(Project.is_deleted == False, Project.status == ProjectStatus.active)
+
+    # ------------------------------
+    # Filters
+    # ------------------------------
+    if filters.title:
+        query = query.filter(Project.title.ilike(f"%{filters.title}%"))
+
+    if filters.client_id:
+        query = query.filter(Project.client_id == filters.client_id)
+
+    if filters.status:
+        query = query.filter(Project.status == filters.status)
+
+    # Sorting
+    if filters.sort == "asc":
+        query = query.order_by(Project.created_at.asc())
+    else:
+        query = query.order_by(Project.created_at.desc())
+
+    # ------------------------------
+    # Pagination
+    # ------------------------------
+    total = query.count()
+
+    skip = (page - 1) * page_size
+    items = query.offset(skip).limit(page_size).all()
+
+    # ------------------------------
+    # Safe serialization
+    # ------------------------------
+    results = [ProjectOutSafe.from_model(p) for p in items]
+
+    base_url = str(request.url).split("?")[0]
+
+    next_url = None
+    prev_url = None
+
+    if skip + page_size < total:
+        next_url = f"{base_url}?page={page+1}&page_size={page_size}"
+
+    if page > 1:
+        prev_url = f"{base_url}?page={page-1}&page_size={page_size}"
+
+    return {
+        "count": total,
+        "next": next_url,
+        "previous": prev_url,
+        "results": results
+    }
+
 
 
 # -----------------------------------
@@ -95,20 +140,20 @@ def process_ml_csv(
 # -----------------------------------
 # Get Project ML Analysis Results
 # -----------------------------------
-@router.get("/{uid}/ml-results")
-def get_ml_results(
-    uid: UUID4,
-    db: Session = Depends(get_db),
-    current_user=Depends(require_role([
-        UserRole.super_admin,
-        UserRole.reviewer,
-    ]))
-):
-    results = (
-        db.query(MLAnalysisResult)
-        .filter(MLAnalysisResult.uid == uid)
-        .order_by(MLAnalysisResult.row_number)
-        .all()
-    )
+# @router.get("/{uid}/ml-results")
+# def get_ml_results(
+#     uid: UUID4,
+#     db: Session = Depends(get_db),
+#     current_user=Depends(require_role([
+#         UserRole.super_admin,
+#         UserRole.reviewer,
+#     ]))
+# ):
+#     results = (
+#         db.query(MLAnalysisResult)
+#         .filter(MLAnalysisResult.uid == uid)
+#         .order_by(MLAnalysisResult.row_number)
+#         .all()
+#     )
 
-    return [r.data for r in results]
+#     return [r.data for r in results]

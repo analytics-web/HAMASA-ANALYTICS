@@ -5,6 +5,16 @@ from enum import Enum
 from .base import Base
 
 # ------------------- ENUMS ------------------------------------------ #
+class UserRole(str, Enum):
+    super_admin = "super_admin"
+    reviewer = "reviewer"
+    data_clerk = "data_clerk"
+    org_admin = "org_admin"
+    org_user = "org_user"
+    ml_service = "ml_service"
+
+
+
 class ProjectStatus(str, Enum):
     draft = "draft"
     submitted = "submitted"

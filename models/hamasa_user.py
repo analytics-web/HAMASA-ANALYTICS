@@ -4,16 +4,13 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY, ENUM
 from sqlalchemy.orm import relationship
 import uuid
 from enum import Enum
+
+from models.enums import UserRole
 from .base import Base
 
 
 # ------------------- ENUMS ------------------------------------------ #
-class UserRole(str, Enum):
-    super_admin = "super_admin"
-    reviewer = "reviewer"
-    data_clerk = "data_clerk"
-    org_admin = "org_admin"
-    org_user = "org_user"
+
 
 class Gender(str, Enum):
     male = "male"
