@@ -170,9 +170,8 @@ def refresh_token(
     access_token = create_access_token(
         data={
             "sub": str(user.id),
-            "role": user.role.value,
-            "email": user.email,
-            "phone": user.phone_number,
+            "role": user.role if user.role else None,
+            "email": user.email
         }
     )
 
@@ -188,7 +187,7 @@ def refresh_token(
 #----------------------------------------------------
 #            Generate Service Token 
 #----------------------------------------------------
-@router.post("/auth/service-token")
+@router.post("/service-token")
 def generate_service_token(
     db: Session = Depends(get_db),
     current_user=Depends(require_role([UserRole.super_admin]))

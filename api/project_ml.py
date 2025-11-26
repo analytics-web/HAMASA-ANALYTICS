@@ -22,6 +22,7 @@ router = APIRouter(prefix="/projects/projects_ml", tags=["Project Machine Learni
 @router.get("/", response_model=PaginatedResponse, dependencies=[Depends(require_role([
                  UserRole.super_admin,
                  UserRole.reviewer,
+                 UserRole.ml_service
              ]))])
 def get_active_projects(
     request: Request,
@@ -91,6 +92,7 @@ def get_active_projects(
              dependencies=[Depends(require_role([
                  UserRole.super_admin,
                  UserRole.reviewer,
+                 UserRole.ml_service
              ]))])
 def process_ml_csv(
     payload: MLCSVRequest,

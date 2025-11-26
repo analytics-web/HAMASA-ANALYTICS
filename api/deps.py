@@ -43,7 +43,8 @@ def get_current_user(
     if role in [
         UserRole.super_admin.value,
         UserRole.reviewer.value,
-        UserRole.data_clerk.value
+        UserRole.data_clerk.value,
+        UserRole.ml_service.value
     ]:
         user = db.query(HamasaUser).filter(HamasaUser.id == user_id).first()
     else:
