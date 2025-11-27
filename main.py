@@ -53,6 +53,8 @@ def custom_openapi():
         routes=app.routes,
     )
 
+    openapi_schema["servers"] = [{"url": "/api"}]
+
     # JWT security scheme
     openapi_schema["components"]["securitySchemes"] = {
         "BearerAuth": {
