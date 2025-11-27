@@ -72,8 +72,12 @@ def custom_openapi():
     # Apply BearerAuth only to specific routes (optional; remove for global)
     for path in openapi_schema["paths"]:
         for method in openapi_schema["paths"][path]:
-            if path not in ["/api/hamasa-api/v1/auth/login", "/api/hamasa-api/v1/auth/refresh-token"]:  # Public endpoints
+            if path not in [
+                "/api/hamasa-api/v1/auth/login",
+                "/api/hamasa-api/v1/auth/refresh-token"
+            ]:
                 openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
