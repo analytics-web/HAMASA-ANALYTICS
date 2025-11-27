@@ -1,3 +1,4 @@
+import datetime
 import json
 import uuid
 from pydantic import BaseModel, UUID4, Field
@@ -5,7 +6,7 @@ from typing import List, Optional
 
 from models.enums import ProjectMediaCategory, ProjectStatus
 from models.project import MediaSource, Project, ProjectThematicAreas
-
+from datetime import datetime
 
 
 
@@ -527,135 +528,6 @@ class ProjectOutSafe(BaseModel):
 
 
 
-
-
-
-
-
-
-
-
-
-# # -----------------------------
-# # Safe Media Source Output
-# # -----------------------------
-# class MediaSourceOutSafe(BaseModel):
-#     id: UUID4
-#     name: str
-#     category_name: ProjectMediaCategory
-
-#     @staticmethod
-#     def from_model(ms):
-#         return MediaSourceOutSafe(
-#             id=ms.id,
-#             name=ms.name,
-#             # model.category.name is already the correct string: Radio, Social Media, etc.
-#             category_name=ProjectMediaCategory(ms.category.name)
-#         )
-
-
-
-# # -----------------------------
-# # Safe Thematic Area Output
-# # -----------------------------
-# class ProjectThematicAreaOutSafe(BaseModel):
-#     id: UUID4
-#     area: str
-#     title: str
-#     description: Optional[str]
-#     monitoring_objectives: List[str]
-
-#     @staticmethod
-#     def from_model(ta):
-#         raw = ta.monitoring_objective
-
-#         if isinstance(raw, list):
-#             mo = raw
-#         elif isinstance(raw, str):
-#             try:
-#                 loaded = json.loads(raw)
-#                 mo = loaded if isinstance(loaded, list) else [loaded]
-#             except:
-#                 mo = [raw]
-#         else:
-#             mo = []
-
-#         return ProjectThematicAreaOutSafe(
-#             id=ta.id,
-#             area=ta.area,
-#             title=ta.title,
-#             description=ta.description,
-#             monitoring_objectives=mo
-#         )
-
-
-# # -----------------------------
-# # Safe Project Output
-# # -----------------------------
-# class ProjectOutSafe(BaseModel):
-#     id: UUID4
-#     title: str
-#     description: str
-#     client_id: UUID4
-#     status: ProjectStatus
-
-#     categories: List[ProjectCategoryOut]
-#     collaborators: List[ClientUserOut]
-#     media_sources: List[MediaSourceOutSafe]
-#     thematic_areas: List[ProjectThematicAreaOutSafe]
-
-#     report_avenues: List[ReportAvenueOut]
-#     report_times: List[ReportTimeOut]
-#     report_consultations: List[ReportConsultationOut]
-
-#     @staticmethod
-#     def from_model(project: Project):
-
-#         return ProjectOutSafe(
-#             id=project.id,
-#             title=project.title,
-#             description=project.description,
-#             client_id=project.client_id,
-#             status=project.status,
-
-#             categories=[
-#                 ProjectCategoryOut.model_validate(c)
-#                 for c in project.categories
-#             ],
-
-#             collaborators=[
-#                 ClientUserOut.model_validate(c)
-#                 for c in project.collaborators
-#             ],
-
-#             thematic_areas=[
-#                 ProjectThematicAreaOutSafe.from_model(t)
-#                 for t in project.thematic_areas
-#             ],
-
-#             media_sources=[
-#                 MediaSourceOutSafe.from_model(link.media_source)
-#                 for link in project.media_sources_link
-#             ],
-
-#             report_avenues=[
-#                 ReportAvenueOut.model_validate(a)
-#                 for a in project.report_avenues
-#             ],
-
-#             report_times=[
-#                 ReportTimeOut.model_validate(t)
-#                 for t in project.report_times
-#             ],
-
-#             report_consultations=[
-#                 ReportConsultationOut.model_validate(c)
-#                 for c in project.report_consultations
-#             ],
-#         )
-
-
-
 # #------------------------------------------------------
 # # Project Status Update Schema
 # #------------------------------------------------------
@@ -774,3 +646,24 @@ class ProjectOutSafe(BaseModel):
                 for c in project.report_consultations
             ],
         )
+
+
+
+class ProjectProgressOut(BaseModel):
+    id: UUID4
+    stage_no: int
+    owner_id: UUID4
+    previous_status: ProjectStatus | None
+    current_status: ProjectStatus
+    action: str | None
+    comment: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectStatusUpdate(BaseModel):
+    status: ProjectStatus
+    action: str | None = None
+    comment: str | None = None

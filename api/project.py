@@ -3,6 +3,7 @@
 # ------------------------------------------------------------
 
 import json
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -11,6 +12,7 @@ from api.deps import require_role
 from db import get_db
 from models.client_user import ClientUser
 from models.enums import ProjectStatus
+from models.project_progress import ProjectProgress
 from schemas.client import PaginatedResponse
 from schemas.hamasa_user import UserRole
 from schemas.project import (
@@ -18,6 +20,7 @@ from schemas.project import (
     ProjectCreate,
     ProjectFilters,
     ProjectOutSafe,
+    ProjectProgressOut,
     ProjectStatusUpdate,
     ProjectUpdate,
 )
@@ -261,6 +264,41 @@ def get_project(
 
 
 # -------------------------------------------------------
+# GET PROJECT PROGRESS LOGS
+# -------------------------------------------------------
+@router.get("/{uid}/progress/", response_model=List[ProjectProgressOut])
+def get_project_progress(
+    uid: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role([
+            UserRole.super_admin,
+            UserRole.org_admin,
+            UserRole.reviewer,
+            UserRole.data_clerk,
+            UserRole.org_user
+        ])
+    ),
+):
+    # Ensure the project exists
+    project = db.query(Project).filter(
+        Project.id == uid,
+        Project.is_deleted == False
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Get progress ordered by creation time
+    progress_logs = db.query(ProjectProgress).filter(
+        ProjectProgress.project_id == uid
+    ).order_by(ProjectProgress.created_at.asc()).all()
+
+    return [ProjectProgressOut.from_orm(p) for p in progress_logs]
+
+
+
+# -------------------------------------------------------
 # UPDATE PROJECT (FULL SAFE)
 # -------------------------------------------------------
 @router.put("/{uid}/", response_model=ProjectOutSafe)
@@ -368,6 +406,9 @@ def update_project_status(
     ),
 ):
 
+    # ------------------------------------
+    # 1. Fetch project
+    # ------------------------------------
     project = db.query(Project).filter(
         Project.id == uid,
         Project.is_deleted == False
@@ -376,28 +417,53 @@ def update_project_status(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    current_status = project.status.value
+    previous_status = project.status.value
     new_status = payload.status.value
 
-    # Check transition rule
-    allowed_next = ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
+    # ------------------------------------
+    # 2. Check transition rule
+    # ------------------------------------
+    allowed_next = ALLOWED_STATUS_TRANSITIONS.get(previous_status, set())
 
     if new_status not in allowed_next:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Invalid status transition: {current_status} → {new_status}. "
+                f"Invalid status transition: {previous_status} → {new_status}. "
                 f"Allowed transitions: {', '.join(allowed_next) or 'none'}"
             )
         )
 
-    # Apply update
+    # ------------------------------------
+    # 3. Update project status
+    # ------------------------------------
     project.status = payload.status
+    db.flush()  # Ensure project status is updated before logging progress
+
+    # ------------------------------------
+    # 4. Log status transition in PROJECT_PROGRESS
+    # ------------------------------------
+    last_stage = db.query(ProjectProgress).filter(
+        ProjectProgress.project_id == project.id
+    ).order_by(ProjectProgress.stage_no.desc()).first()
+
+    next_stage_no = (last_stage.stage_no + 1) if last_stage else 1
+
+    progress_entry = ProjectProgress(
+        project_id=project.id,
+        stage_no=next_stage_no,
+        owner_id=current_user["id"],
+        previous_status=previous_status,
+        current_status=new_status,
+        action=payload.action,
+        comment=payload.comment
+    )
+
+    db.add(progress_entry)
     db.commit()
     db.refresh(project)
 
     return ProjectOutSafe.from_model(project)
-
 
 # -------------------------------------------------------
 # DELETE PROJECT (SOFT DELETE)

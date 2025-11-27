@@ -14,6 +14,11 @@ class UserRole(str, Enum):
     ml_service = "ml_service"
 
 
+class ProjectReportStatus(str, Enum):
+    unverfied = "Unverified"
+    verified = "Verified"
+    rejected = "Rejected"
+
 
 class ProjectStatus(str, Enum):
     draft = "draft"

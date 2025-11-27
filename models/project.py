@@ -80,6 +80,14 @@ class Project(Base):
     #
     ml_results = relationship("MLAnalysisResult", back_populates="project", cascade="all, delete")
 
+    # Progress logs (corrected)
+    project_progress = relationship("ProjectProgress", back_populates="project", cascade="all, delete-orphan")
+    project_report_progress = relationship("ProjectReportProgress", back_populates="project", cascade="all, delete-orphan")
+
+    # Reports (corrected)
+    reports = relationship("ProjectReport", back_populates="project", cascade="all, delete-orphan")
+
+
 
     # Many-to-many: Project <-> Category
     categories = relationship(
