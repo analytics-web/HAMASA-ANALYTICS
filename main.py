@@ -31,9 +31,9 @@ app = FastAPI(
     title="Hamasa Analytics",
     description="Hamasa Analytics Backend Apis",
     version="1.1.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     openapi_tags=[
         {"name": "Auth", "description":"Authentication and user management"}
     ],
@@ -72,7 +72,7 @@ def custom_openapi():
     # Apply BearerAuth only to specific routes (optional; remove for global)
     for path in openapi_schema["paths"]:
         for method in openapi_schema["paths"][path]:
-            if path not in ["/api/api/hamasa-api/v1/auth/login", "/api/api/hamasa-api/v1/auth/refresh-token"]:  # Public endpoints
+            if path not in ["/api/hamasa-api/v1/auth/login", "/api/hamasa-api/v1/auth/refresh-token"]:  # Public endpoints
                 openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
     app.openapi_schema = openapi_schema
     return app.openapi_schema
@@ -114,18 +114,18 @@ async def shutdown_event():
 #     return {"message": "Api is running"}
 
 
-app.include_router(auth.router, prefix="/api/hamasa-api/v1", tags=["Auth"])
-app.include_router(client.router, prefix="/api/hamasa-api/v1", tags=["Clients"])
-app.include_router(client_user.router, prefix="/api/hamasa-api/v1", tags=["Client Users "])
-app.include_router(hamasa_user.router, prefix="/api/hamasa-api/v1", tags=["Hamasa Users"])
-app.include_router(project_categories.router, prefix="/api/hamasa-api/v1", tags=["Project Categories"])
-# app.include_router(project_thematic_areas.router, prefix="/api/hamasa-api/v1", tags=["Project Thematic Areas"])
-app.include_router(project_media_categories.router, prefix="/api/hamasa-api/v1", tags=["Project Media Categories"])
-app.include_router(project_media_sources.router, prefix="/api/hamasa-api/v1", tags=["Project Media Sources"])
-# app.include_router(project_report_avenues.router, prefix="/api/hamasa-api/v1", tags=["Project Report Avenues"])
-# app.include_router(project_report_times.router, prefix="/api/hamasa-api/v1", tags=["Projects Report Times"])
-# app.include_router(project_report_consultations.router, prefix="/api/hamasa-api/v1", tags=["Project Report Consultations"])
-app.include_router(project_collaborators.router, prefix="/api/hamasa-api/v1", tags=["Project Collaborators"])
-app.include_router(project_ml.router, prefix="/api/hamasa-api/v1", tags=["Project Machine Learning"])
-app.include_router(project.router, prefix="/api/hamasa-api/v1", tags=["Projects"])
-app.include_router(project_report.router, prefix="/api/hamasa-api/v1", tags=["Project Reports"])
+app.include_router(auth.router, prefix="/hamasa-api/v1", tags=["Auth"])
+app.include_router(client.router, prefix="/hamasa-api/v1", tags=["Clients"])
+app.include_router(client_user.router, prefix="/hamasa-api/v1", tags=["Client Users "])
+app.include_router(hamasa_user.router, prefix="/hamasa-api/v1", tags=["Hamasa Users"])
+app.include_router(project_categories.router, prefix="/hamasa-api/v1", tags=["Project Categories"])
+# app.include_router(project_thematic_areas.router, prefix="/hamasa-api/v1", tags=["Project Thematic Areas"])
+app.include_router(project_media_categories.router, prefix="/hamasa-api/v1", tags=["Project Media Categories"])
+app.include_router(project_media_sources.router, prefix="/hamasa-api/v1", tags=["Project Media Sources"])
+# app.include_router(project_report_avenues.router, prefix="/hamasa-api/v1", tags=["Project Report Avenues"])
+# app.include_router(project_report_times.router, prefix="/hamasa-api/v1", tags=["Projects Report Times"])
+# app.include_router(project_report_consultations.router, prefix="/hamasa-api/v1", tags=["Project Report Consultations"])
+app.include_router(project_collaborators.router, prefix="/hamasa-api/v1", tags=["Project Collaborators"])
+app.include_router(project_ml.router, prefix="/hamasa-api/v1", tags=["Project Machine Learning"])
+app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])
+app.include_router(project_report.router, prefix="/hamasa-api/v1", tags=["Project Reports"])
