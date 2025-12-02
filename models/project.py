@@ -66,7 +66,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(String(50), nullable=False, index=True)
+    title = Column(String(255), nullable=False, index=True)
     description = Column(String(500), nullable=False)
     client_id = Column(UUID(as_uuid=True), ForeignKey("client.id", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(ProjectStatus), default=ProjectStatus.draft.value, nullable=False)

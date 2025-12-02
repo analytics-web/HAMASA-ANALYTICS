@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, requests
 from sqlalchemy.orm import Session
 from typing import List
 
 from models.project import Project
 from models.project_report import ProjectReport
 from models.project_progress import ProjectProgress
+from models.project_report_progress import ProjectReportProgress
 from schemas.project_report import (
     ProjectReportCreate,
     ProjectReportUpdate,
@@ -20,34 +21,82 @@ router = APIRouter(prefix="/project", tags=["Project Reports"])
 
 
 
-@router.post("/{project_id}/reports", response_model=ProjectReportOut)
-def create_report(
+EXTERNAL_REPORT_URL = "https://hamasa-analytics-model.onrender.com/project/{project_id}/reports"
+
+
+@router.post("/{project_id}/reports/import")
+def import_project_reports(
     project_id: str,
-    data: ProjectReportCreate,
     db: Session = Depends(get_db),
     current_user=Depends(require_role([
         UserRole.super_admin, UserRole.org_admin,
         UserRole.reviewer, UserRole.data_clerk
     ]))
 ):
+    # -------- 1. Validate project --------
     project = db.query(Project).filter(
-        Project.id == project_id, Project.is_deleted == False
+        Project.id == project_id,
+        Project.is_deleted == False
     ).first()
 
     if not project:
         raise HTTPException(404, "Project not found")
 
-    report = ProjectReport(
-        project_id=project_id,
-        **data.dict(),
-        status="Unverified"
-    )
+    # -------- 2. Call external endpoint --------
+    url = EXTERNAL_REPORT_URL.format(project_id=project_id)
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(500, f"Failed to fetch external reports: {e}")
 
-    db.add(report)
+    data = response.json()
+
+    if "items" not in data:
+        raise HTTPException(500, "Invalid external response format")
+
+    items = data["items"]
+    saved = 0
+
+    # -------- 3. Insert each report --------
+    for item in items:
+
+        # Optional: skip duplicates
+        existing = db.query(ProjectReport).filter(
+            ProjectReport.link == item.get("link"),
+            ProjectReport.project_id == project_id
+        ).first()
+
+        if existing:
+            continue
+
+        report = ProjectReport(
+            project_id=project_id,
+            publication_date=item.get("date"),
+            title=item.get("title"),
+            content=item.get("content"),
+            source=item.get("source"),
+            media_category=item.get("media_category") or None,
+            media_format=item.get("media_format"),
+            thematic_area=item.get("thematic_area"),
+            thematic_description=item.get("thematic_description"),
+            objectives=item.get("objectives"),
+            link=item.get("link"),
+            status=item.get("status", "Unverified"),
+            extra_metadata={}  # leave empty or populate later
+        )
+
+        db.add(report)
+        saved += 1
+
     db.commit()
-    db.refresh(report)
 
-    return report
+    return {
+        "message": "Reports imported successfully",
+        "project_id": project_id,
+        "imported_count": saved,
+        "total_received": len(items)
+    }
 
 
 
@@ -187,3 +236,8 @@ def delete_report(
     db.commit()
 
     return {"message": "Report deleted"}
+
+
+
+
+  
