@@ -505,3 +505,6 @@ def delete_project(
     db.commit()
 
     return None
+
+
+

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
-from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report
+from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report, project_report_avenues, project_report_consultations, project_report_times
 from api import hamasa_user
 from db.db import SessionLocal
 from models.base import Base
@@ -123,6 +123,9 @@ app.include_router(project_categories.router, prefix="/hamasa-api/v1", tags=["Pr
 app.include_router(project_media_categories.router, prefix="/hamasa-api/v1", tags=["Project Media Categories"])
 app.include_router(project_media_sources.router, prefix="/hamasa-api/v1", tags=["Project Media Sources"])
 app.include_router(project_collaborators.router, prefix="/hamasa-api/v1", tags=["Project Collaborators"])
+app.include_router(project_report_avenues.router, prefix="/hamasa-api/v1", tags=["Project Report Avenues"])
+app.include_router(project_report_times.router, prefix="/hamasa-api/v1", tags=["Project Report Times"])
+app.include_router(project_report_consultations.router, prefix="/hamasa-api/v1", tags=["Project Report Consultations"])
 app.include_router(project_ml.router, prefix="/hamasa-api/v1", tags=["Project Machine Learning"])
 app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])
 app.include_router(project_report.router, prefix="/hamasa-api/v1", tags=["Project Reports"])
