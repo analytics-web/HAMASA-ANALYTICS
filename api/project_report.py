@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, requests
 from sqlalchemy.orm import Session
 from typing import List
@@ -24,6 +25,8 @@ router = APIRouter(prefix="/project", tags=["Project Reports"])
 EXTERNAL_REPORT_URL = "https://hamasa-analytics-model.onrender.com/project/{project_id}/reports"
 
 
+from datetime import datetime
+
 @router.post("/{project_id}/reports/import")
 def import_project_reports(
     project_id: str,
@@ -33,7 +36,6 @@ def import_project_reports(
         UserRole.reviewer, UserRole.data_clerk
     ]))
 ):
-    # -------- 1. Validate project --------
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.is_deleted == False
@@ -42,8 +44,8 @@ def import_project_reports(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    # -------- 2. Call external endpoint --------
     url = EXTERNAL_REPORT_URL.format(project_id=project_id)
+
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -58,10 +60,8 @@ def import_project_reports(
     items = data["items"]
     saved = 0
 
-    # -------- 3. Insert each report --------
     for item in items:
 
-        # Optional: skip duplicates
         existing = db.query(ProjectReport).filter(
             ProjectReport.link == item.get("link"),
             ProjectReport.project_id == project_id
@@ -70,9 +70,16 @@ def import_project_reports(
         if existing:
             continue
 
+        # Convert date string to datetime
+        raw_date = item.get("date")
+        try:
+            pub_date = datetime.strptime(raw_date, "%Y-%m-%d %H:%M:%S")
+        except:
+            raise HTTPException(500, f"Invalid date format: {raw_date}")
+
         report = ProjectReport(
             project_id=project_id,
-            publication_date=item.get("date"),
+            publication_date=pub_date,
             title=item.get("title"),
             content=item.get("content"),
             source=item.get("source"),
@@ -83,7 +90,7 @@ def import_project_reports(
             objectives=item.get("objectives"),
             link=item.get("link"),
             status=item.get("status", "Unverified"),
-            extra_metadata={}  # leave empty or populate later
+            extra_metadata={}
         )
 
         db.add(report)
