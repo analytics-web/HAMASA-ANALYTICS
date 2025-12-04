@@ -28,6 +28,9 @@ EXTERNAL_REPORT_URL = "https://hamasa-analytics-model.onrender.com/project/{proj
 
 from datetime import datetime
 
+#--------------------------------------------
+# Import Project Reports from External Source
+#--------------------------------------------
 @router.post("/{project_id}/reports/import")
 def import_project_reports(
     project_id: str,
@@ -107,7 +110,9 @@ def import_project_reports(
     }
 
 
-
+#-------------------------------------------------------------------------
+# Get all Projects Reports
+#-------------------------------------------------------------------------
 @router.get("/{project_id}/reports", response_model=List[ProjectReportOut])
 def list_reports(
     project_id: str,
@@ -133,7 +138,9 @@ def list_reports(
 
 
 
-
+#-----------------------------------------------------------------
+# Get Single Report Endpoint
+#-----------------------------------------------------------------
 @router.get("/report/{report_id}", response_model=ProjectReportOut)
 def get_single_report(
     report_id: str,
@@ -153,7 +160,9 @@ def get_single_report(
     return report
 
 
-
+#-----------------------------------------------------------------
+# Update Report Endpoint
+#-----------------------------------------------------------------
 @router.put("/report/{report_id}", response_model=ProjectReportOut)
 def update_report(
     report_id: str,
@@ -180,7 +189,9 @@ def update_report(
     return report
 
 
-
+#-----------------------------------------
+# Update Report Status Endpoint
+#-----------------------------------------
 @router.patch("/report/{report_id}/status")
 def update_report_status(
     report_id: str,
@@ -205,7 +216,7 @@ def update_report_status(
     progress = ProjectReportProgress(
         project_id=report.project_id,
         stage_no=1,
-        owner_id=current_user.id,
+        owner_id=current_user["id"],
         previous_status=old_status,
         current_status=data.status,
         action="Status Update",
@@ -224,7 +235,9 @@ def update_report_status(
     }
 
 
-
+#------------------------------------
+# Delete Report Endpoint
+#------------------------------------
 @router.delete("/report/{report_id}")
 def delete_report(
     report_id: str,
