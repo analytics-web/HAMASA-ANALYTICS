@@ -139,7 +139,9 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
         )
 
 
-    role = str(user.role) if user.role else None
+    role = None
+    if user.role:
+        role = user.role.value if hasattr(user.role, "value") else user.role
 
     access_token = create_access_token(
         data={
@@ -148,8 +150,9 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
             "email": user.email,
             "user_type": user_type,
             "client_id": str(user.client_id) if user_type == "client" else None,
-        }
+        }  
     )
+
 
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
