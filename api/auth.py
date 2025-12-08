@@ -6,7 +6,7 @@ from api.deps import get_current_user, require_role
 from db import SessionLocal,get_db
 from models.client_user import ClientUser
 from models.enums import UserRole
-from models.hamasa_user import HamasaUser as  User
+from models.hamasa_user import HamasaUser as  HamasaUser
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, oauth2_scheme
 from schemas.hamasa_user import (
     PasswordChange,
@@ -106,17 +106,31 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
 
-#---------------- Login ----------------
-@router.post("/login", response_model=Token,
-             dependencies=[Depends(RateLimiter(times=5, seconds=60))])  
-def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
-    # Query by email or phone
-    if "@" in form_data.identifier:  # looks like email
-        user = db.query(User).filter(User.email == form_data.identifier).first()
-    else:  # treat as phone
-        user = db.query(User).filter(User.phone_number == form_data.identifier).first()
 
-    # Check credentials
+@router.post("/auth/login", response_model=Token)
+def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
+    identifier = form_data.identifier
+
+    user = None
+    user_type = None  # "hamasa" or "client"
+
+    if "@" in identifier:
+        user = db.query(HamasaUser).filter(HamasaUser.email == identifier).first()
+    else:
+        user = db.query(HamasaUser).filter(HamasaUser.phone_number == identifier).first()
+
+    if user:
+        user_type = "hamasa"
+
+    if not user:
+        if "@" in identifier:
+            user = db.query(ClientUser).filter(ClientUser.email == identifier).first()
+        else:
+            user = db.query(ClientUser).filter(ClientUser.phone_number == identifier).first()
+
+        if user:
+            user_type = "client"
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -124,26 +138,27 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create access and refresh tokens
+
+    role = str(user.role) if user.role else None
+
     access_token = create_access_token(
         data={
             "sub": str(user.id),
-            "role": user.role if user.role else None,
+            "role": role,
             "email": user.email,
+            "user_type": user_type,
+            "client_id": str(user.client_id) if user_type == "client" else None,
         }
     )
 
-    refresh_token = create_refresh_token(
-        data={
-            "sub": str(user.id),
-        }
-    )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": UserAuth.from_orm(user),
+        "user_type": user_type,
     }
 
 
