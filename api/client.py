@@ -368,3 +368,45 @@ def delete_client(
 
     return {"message": "Client deleted successfully", "client_id": str(client_id)}
 
+
+
+
+DEFAULT_PASSWORD = "12345678"
+#--------------------------
+# Reset client user's password to default
+#--------------------------
+@router.post(
+    "/client-users/{user_id}/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Reset client user's password to default",
+)
+def reset_client_user_password(
+    user_id: Optional[uuid.UUID] = None,
+    phone_no: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role([UserRole.super_admin])),
+):
+    """
+    Reset a client user's password back to the default.
+    Only accessible by SUPER ADMIN.
+    """
+
+    # Validate user
+    user = db.query(ClientUser).filter(ClientUser.id == user_id, ClientUser.phone_number == phone_no).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Client user not found")
+
+    # Reset the password
+    hashed = hash_password(DEFAULT_PASSWORD)
+    user.hashed_password = hashed
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Password reset successfully",
+        "user_id": str(user.id),
+        "email": user.email,
+        "new_password": DEFAULT_PASSWORD
+    }

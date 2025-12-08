@@ -606,8 +606,21 @@ class ProjectOutSafe(BaseModel):
     report_times: List[ReportTimeOut]
     report_consultations: List[ReportConsultationOut]
 
+    total_media_sources: int
+    total_thematic_areas: int
+
     @classmethod
     def from_model(cls, project: Project):
+
+        media_sources = [
+            MediaSourceOutSafe.from_model(ms)
+            for ms in project.media_sources
+        ]
+
+        thematic_areas = [
+            ProjectThematicAreaOutSafe.from_model(t)
+            for t in project.thematic_areas
+        ]
 
         return cls(
             id=project.id,
@@ -624,14 +637,8 @@ class ProjectOutSafe(BaseModel):
                 ClientUserOut.model_validate(c)
                 for c in project.collaborators
             ],
-            thematic_areas=[
-                ProjectThematicAreaOutSafe.from_model(t)
-                for t in project.thematic_areas
-            ],
-            media_sources=[
-                MediaSourceOutSafe.from_model(ms)
-                for ms in project.media_sources
-            ],
+            thematic_areas=thematic_areas,
+            media_sources=media_sources,
 
             report_avenues=[
                 ReportAvenueOut.model_validate(a)
@@ -645,6 +652,9 @@ class ProjectOutSafe(BaseModel):
                 ReportConsultationOut.model_validate(c)
                 for c in project.report_consultations
             ],
+
+            total_media_sources=len(media_sources),
+            total_thematic_areas=len(thematic_areas)
         )
 
 
