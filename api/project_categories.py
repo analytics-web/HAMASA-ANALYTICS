@@ -90,7 +90,7 @@ def get_categories(
 #------------------------------
 # get category by id
 #------------------------------
-@router.get("/categories/{id}", response_model=ProjectCategoryOut)
+@router.get("/categories/{id}/", response_model=ProjectCategoryOut)
 def get_project_category(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -118,7 +118,7 @@ def get_project_category(
 #------------------------------
 # update category
 #------------------------------
-@router.patch("/categories/{category_id}", response_model=ProjectCategoryOut)
+@router.patch("/categories/{category_id}/", response_model=ProjectCategoryOut)
 def update_category(
     category_id: uuid.UUID,
     data: ProjectCategoryUpdate,
@@ -155,7 +155,7 @@ def update_category(
 #------------------------------
 # delete category
 #------------------------------
-@router.delete("/categories/{category_id}", status_code=204)
+@router.delete("/categories/{category_id}/", status_code=204)
 def delete_category(
     category_id: uuid.UUID,
     current_user=Depends(require_role([UserRole.super_admin])),
