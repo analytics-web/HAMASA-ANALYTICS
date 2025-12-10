@@ -107,7 +107,7 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
 
 
 
-@router.post("/auth/login", response_model=Token)
+@router.post("/login", response_model=Token)
 def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
     identifier = form_data.identifier
 
