@@ -321,7 +321,7 @@ def update_client(
 # Delete client (soft delete)
 #--------------------------
 @router.delete(
-    "/clients/{client_id}",
+    "/clients/{client_id}/",
     status_code=200,
     summary="Soft delete a client",
 )

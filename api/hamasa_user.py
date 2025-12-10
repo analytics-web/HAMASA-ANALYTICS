@@ -32,7 +32,7 @@ router = APIRouter(prefix="/hamasa-user", tags=["Hamasa Users"])
 # -----------------
 # Get Current User
 # -----------------
-@router.get("/me")
+@router.get("/me/")
 def read_me(
     current_user=Depends(require_role([
         UserRole.super_admin,
@@ -49,7 +49,7 @@ def read_me(
 # -----------------
 # Get all Users
 # -----------------
-@router.get("/all-users", response_model=list[UserListOut])
+@router.get("/all-users/", response_model=list[UserListOut])
 def get_all_users(
     response: Response,
     page: int = Query(1, ge=1, description="Page number"),
@@ -101,7 +101,7 @@ def get_all_users(
 # -----------------
 # Get One User
 # -----------------
-@router.get("/one/{user_id}", response_model=UserResponse)
+@router.get("/one/{user_id}/", response_model=UserResponse)
 def get_one_user(
     user_id: UUID,
     current_user=Depends(
@@ -139,7 +139,7 @@ def get_one_user(
 # ------------------------
 # Find User (ID, phone, or email)
 # ------------------------
-@router.get("/find", response_model=UserResponse)
+@router.get("/find/", response_model=UserResponse)
 def find_user(
     user_id: Optional[UUID] = None,
     phone_number: Optional[str] = None,
@@ -290,7 +290,7 @@ def update_user(
 # Delete User
 # -----------------
 @router.delete(
-    "/{user_id}",
+    "/{user_id}/",
     status_code=status.HTTP_200_OK,
     responses={
         404: {"description": "User not found"},
@@ -410,7 +410,7 @@ def assign_roles_to_user(
 # ----------------------------------
 # Assign Reviewer & Clerk to Client
 # ----------------------------------
-@router.post("/assign-user-to-client", response_model=UserClientOut)
+@router.post("/assign-user-to-client/", response_model=UserClientOut)
 def assign_user_to_client(
     data: UserClientAssign,
     current_user=Depends(require_role([UserRole.super_admin, UserRole.org_admin])),
@@ -454,7 +454,7 @@ def assign_user_to_client(
 # --------------------------
 # De-Assign User from Client
 # --------------------------
-@router.delete("/deassign-user-from-client", response_model=dict)
+@router.delete("/deassign-user-from-client/", response_model=dict)
 def deassign_user_from_client(
     user_id: Optional[UUID] = Query(None),
     phone_number: Optional[str] = Query(None),
