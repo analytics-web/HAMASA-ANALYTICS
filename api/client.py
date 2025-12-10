@@ -214,7 +214,7 @@ def get_all_clients(
 #------------------------------
 # get client by id
 #------------------------------
-@router.get("/clients/{id}", response_model=ClientOut)
+@router.get("/clients/{id}/", response_model=ClientOut)
 def get_client(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -248,7 +248,7 @@ def get_client(
 # update client details 
 # -----------------------
 @router.patch(
-    "/clients/{client_id}",
+    "/clients/{client_id}/",
     response_model=ClientOut,
     status_code=status.HTTP_200_OK,
     summary="Update client details"
@@ -376,7 +376,7 @@ DEFAULT_PASSWORD = "12345678"
 # Reset client user's password to default
 #--------------------------
 @router.post(
-    "/client-users/{user_id}/reset-password",
+    "/client-users/{user_id}/reset-password/",
     status_code=status.HTTP_200_OK,
     summary="Reset client user's password to default",
 )
