@@ -1,7 +1,3 @@
-# ------------------------------------------------------------
-# PROJECT CREATE / UPDATE (SAFE, FIXED, VALIDATION-PROOF)
-# ------------------------------------------------------------
-
 import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request

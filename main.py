@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
-from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report, project_report_avenues, project_report_consultations, project_report_times
+from api import auth, client, client_user, project, project_categories, project_collaborators, project_media_categories, project_media_sources, project_ml, project_report, project_report_avenues, project_report_consultations, project_report_times, dashboard
 from api import hamasa_user
 from db.db import SessionLocal
 from models.base import Base
@@ -9,6 +9,7 @@ import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 import logging
 from fastapi.openapi.utils import get_openapi
+
 
 from utils.project_helpers import seed_report_consultations, seed_report_times
 
@@ -53,7 +54,7 @@ def custom_openapi():
         routes=app.routes,
     )
 
-    openapi_schema["servers"] = [{"url": "/api"}]
+    # openapi_schema["servers"] = [{"url": "/api"}]
 
     # JWT security scheme
     openapi_schema["components"]["securitySchemes"] = {
@@ -129,3 +130,5 @@ app.include_router(project_report_consultations.router, prefix="/hamasa-api/v1",
 app.include_router(project_ml.router, prefix="/hamasa-api/v1", tags=["Project Machine Learning"])
 app.include_router(project.router, prefix="/hamasa-api/v1", tags=["Projects"])
 app.include_router(project_report.router, prefix="/hamasa-api/v1", tags=["Project Reports"])
+app.include_router(dashboard.router, prefix="/hamasa-api/v1", tags=["Dashboard"])
+
