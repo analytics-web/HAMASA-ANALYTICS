@@ -46,7 +46,7 @@ SERVICE_TOKEN_EXPIRE_DAYS = 365   # 1 year
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login/")
 
 
 # ---------------- Register ----------------
@@ -107,7 +107,7 @@ async def verify_phone(phone: str, otp: str, db: Session = Depends(get_db)):
 
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login/", response_model=Token)
 def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
     identifier = form_data.identifier
 
@@ -167,7 +167,7 @@ def login(form_data: UserLoginFlexible, db: Session = Depends(get_db)):
 
 
 # ---------------- Refresh Token ----------------
-@router.post("/refresh-token", response_model=Token)
+@router.post("/refresh-token/", response_model=Token)
 def refresh_token(
     payload: RefreshTokenRequest,
     db: Session = Depends(get_db)
@@ -254,7 +254,7 @@ def generate_service_token(
 
 
 # ---------------- Logout ----------------
-@router.post("/logout")
+@router.post("/logout/")
 def logout():
     # For JWT, logout is handled client-side by deleting the token
     return {"msg": "Logout successful. Please delete the token on client side."}
