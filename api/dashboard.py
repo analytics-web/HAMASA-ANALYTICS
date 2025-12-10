@@ -82,6 +82,7 @@ def get_dashboard_overview(
         recent_reports.append(RecentReport(
             client_name=r.project.client.name_of_organisation,
             title=r.title,
+            source=r.source,
             date=r.publication_date,
             status=r.status
         ))

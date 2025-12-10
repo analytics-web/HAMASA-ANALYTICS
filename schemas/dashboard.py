@@ -27,6 +27,7 @@ class MediaSourceCoverage(BaseModel):
 class RecentReport(BaseModel):
     client_name: str
     title: str
+    source:str
     date: datetime
     status: str
 
