@@ -23,7 +23,7 @@ router = APIRouter(prefix="/dashboards", tags=["Dashboard"])
 #----------------------------------------------
 # Admin Dashboard
 #----------------------------------------------
-@router.get("/dashboard/overview/", response_model=DashboardResponse)
+@router.get("/hamasa-overview/", response_model=DashboardResponse)
 def get_dashboard_overview(
     db: Session = Depends(get_db),
     current_user=Depends(require_role([
