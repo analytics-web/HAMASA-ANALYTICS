@@ -194,7 +194,7 @@ def get_all_client_users(
 # -------------------------
 # Get client user by ID 
 # -------------------------
-@router.get("/client-users/{id}", response_model=ClientUserOut)
+@router.get("/client-users/{id}/", response_model=ClientUserOut)
 def get_client_user(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -501,7 +501,7 @@ def update_client_user_password(
 # Delete client user (Soft delete)
 # --------------------------------                             
 @router.delete(
-    "/client-users/{user_id}",
+    "/client-users/{user_id}/",
     status_code=200,
     summary="Delete a client user",
 )
@@ -548,7 +548,7 @@ def delete_client_user(
 # Activate / Deactivate client user
 # -----------------------------
 @router.patch(
-    "/client-users/{user_id}/status",
+    "/client-users/{user_id}/status/",
     summary="Activate or deactivate a client user",
     status_code=200,
 )
@@ -602,7 +602,7 @@ def update_user_status(
 # Promote / Demote client user
 # -----------------------------
 @router.patch(
-    "/client-users/{user_id}/role",
+    "/client-users/{user_id}/role/",
     summary="Promote or demote a client user",
     status_code=200,
 )
