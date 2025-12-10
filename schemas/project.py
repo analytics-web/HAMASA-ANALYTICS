@@ -595,6 +595,7 @@ class ProjectOutSafe(BaseModel):
     title: str
     description: str
     client_id: UUID4
+    client_name: Optional[str] = None
     status: ProjectStatus
 
     categories: List[ProjectCategoryOut]
@@ -627,6 +628,7 @@ class ProjectOutSafe(BaseModel):
             title=project.title,
             description=project.description,
             client_id=project.client_id,
+            client_name=project.client.name_of_organisation if project.client else None,
             status=project.status,
 
             categories=[
