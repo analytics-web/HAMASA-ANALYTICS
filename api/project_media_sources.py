@@ -51,7 +51,7 @@ def normalize_category(db_value: str) -> ProjectMediaCategory:
 # ------------------------------------------------------------------
 # CREATE MEDIA SOURCE
 # ------------------------------------------------------------------
-@router.post("/media-sources/", response_model=MediaSourceOut)
+# @router.post("/media-sources/", response_model=MediaSourceOut)
 @router.post("/media-sources/", response_model=MediaSourceOut)
 def create_media_source(
     source: MediaSourceBase,
@@ -167,7 +167,7 @@ def get_media_sources(
 #-------------------------------------------------------------------
 # Get MEDIA SOURCE by ID
 #-------------------------------------------------------------------
-@router.get("/media-sources/{id}", response_model=MediaSourceOut)
+@router.get("/media-sources/{id}/", response_model=MediaSourceOut)
 def get_media_source(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -198,7 +198,7 @@ def get_media_source(
 # ------------------------------------------------------------------
 # UPDATE MEDIA SOURCE
 # ------------------------------------------------------------------
-@router.patch("/media-sources/{id}", response_model=MediaSourceOut)
+@router.patch("/media-sources/{id}/", response_model=MediaSourceOut)
 def update_media_source(
     id: uuid.UUID,
     data: MediaSourceUpdate,
@@ -269,7 +269,7 @@ def update_media_source(
 # ------------------------------------------------------------------
 # DELETE MEDIA SOURCE
 # ------------------------------------------------------------------
-@router.delete("/media-sources/{id}", status_code=204)
+@router.delete("/media-sources/{id}/", status_code=204)
 def delete_media_source(
     id: uuid.UUID,
     current_user=Depends(require_role([UserRole.super_admin])),

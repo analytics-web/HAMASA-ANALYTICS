@@ -97,7 +97,7 @@ def list_report_consultations(
 #------------------------------
 # Get report consultation by ID
 #------------------------------
-@router.get("/report-consultations/{id}", response_model=ReportConsultationOut)
+@router.get("/report-consultations/{id}/", response_model=ReportConsultationOut)
 def get_report_consultation(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -126,14 +126,14 @@ def get_report_consultation(
 #------------------------------
 # Update report consultation
 #------------------------------
-@router.patch("/report-consultations/{id}")
+@router.patch("/report-consultations/{id}/")
 def update_report_consultation():
     raise HTTPException(400, "Consultation types cannot be updated (enum-managed)")
 
 #------------------------------
 # Delete report consultation
 #------------------------------
-@router.delete("/report-consultations/{id}", status_code=204)
+@router.delete("/report-consultations/{id}/", status_code=204)
 def delete_report_consultation(
     id: uuid.UUID,
     current_user=Depends(require_role([UserRole.super_admin])),

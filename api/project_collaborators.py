@@ -23,7 +23,7 @@ router = APIRouter(prefix="/projects", tags=["Project Collaborators"])
 #--------------------------------
 # Assign collaborator to project
 #--------------------------------
-@router.post("/{project_id}/collaborators/{user_id}", response_model=ProjectOut)
+@router.post("/{project_id}/collaborators/{user_id}/", response_model=ProjectOut)
 def add_collaborator(
     project_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -70,7 +70,7 @@ def add_collaborator(
 #--------------------------------
 # Remove collaborator from project
 #--------------------------------
-@router.delete("/{project_id}/collaborators/{user_id}", response_model=ProjectOut)
+@router.delete("/{project_id}/collaborators/{user_id}/", response_model=ProjectOut)
 def remove_collaborator(
     project_id: uuid.UUID,
     user_id: uuid.UUID,

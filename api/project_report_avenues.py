@@ -72,7 +72,7 @@ def list_report_avenues(
 #-----------------------------
 # get report avenue by id
 #------------------------------
-@router.get("/report-avenues/{id}", response_model=ReportAvenueOut)
+@router.get("/report-avenues/{id}/", response_model=ReportAvenueOut)
 def get_report_avenue(
     id: uuid.UUID,
     current_user=Depends(require_role([UserRole.super_admin])),
@@ -92,7 +92,7 @@ def get_report_avenue(
 #------------------------------
 # Update report avenue
 #------------------------------
-@router.patch("/report-avenues/{id}", response_model=ReportAvenueOut)
+@router.patch("/report-avenues/{id}/", response_model=ReportAvenueOut)
 def update_report_avenue(
     id: uuid.UUID,
     data: ReportAvenueUpdate,
@@ -129,7 +129,7 @@ def update_report_avenue(
 #------------------------------
 # Delete report avenue
 #------------------------------
-@router.delete("/report-avenues/{id}", status_code=204)
+@router.delete("/report-avenues/{id}/", status_code=204)
 def delete_report_avenue(
     id: uuid.UUID,
     current_user=Depends(require_role([UserRole.super_admin])),

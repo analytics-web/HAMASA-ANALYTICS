@@ -31,7 +31,7 @@ from datetime import datetime
 #--------------------------------------------
 # Import Project Reports from External Source
 #--------------------------------------------
-@router.post("/{project_id}/reports/import")
+@router.post("/{project_id}/reports/import/")
 def import_project_reports(
     project_id: str,
     db: Session = Depends(get_db),
@@ -113,7 +113,7 @@ def import_project_reports(
 #-------------------------------------------------------------------------
 # Get all Projects Reports
 #-------------------------------------------------------------------------
-@router.get("/{project_id}/reports", response_model=List[ProjectReportOut])
+@router.get("/{project_id}/reports/", response_model=List[ProjectReportOut])
 def list_reports(
     project_id: str,
     db: Session = Depends(get_db),
@@ -141,7 +141,7 @@ def list_reports(
 #-----------------------------------------------------------------
 # Get Single Report Endpoint
 #-----------------------------------------------------------------
-@router.get("/report/{report_id}", response_model=ProjectReportOut)
+@router.get("/report/{report_id}/", response_model=ProjectReportOut)
 def get_single_report(
     report_id: str,
     db: Session = Depends(get_db),
@@ -163,7 +163,7 @@ def get_single_report(
 #-----------------------------------------------------------------
 # Update Report Endpoint
 #-----------------------------------------------------------------
-@router.put("/report/{report_id}", response_model=ProjectReportOut)
+@router.put("/report/{report_id}/", response_model=ProjectReportOut)
 def update_report(
     report_id: str,
     data: ProjectReportUpdate,
@@ -192,7 +192,7 @@ def update_report(
 #-----------------------------------------
 # Update Report Status Endpoint
 #-----------------------------------------
-@router.patch("/report/{report_id}/status")
+@router.patch("/report/{report_id}/status/")
 def update_report_status(
     report_id: str,
     data: ProjectReportStatusUpdate,
@@ -238,7 +238,7 @@ def update_report_status(
 #------------------------------------
 # Delete Report Endpoint
 #------------------------------------
-@router.delete("/report/{report_id}")
+@router.delete("/report/{report_id}/")
 def delete_report(
     report_id: str,
     db: Session = Depends(get_db),

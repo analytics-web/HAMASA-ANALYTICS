@@ -97,7 +97,7 @@ def list_report_times(
 #------------------------------
 # Get one report time
 #------------------------------
-@router.get("/report-times/{id}", response_model=ReportTimeOut)
+@router.get("/report-times/{id}/", response_model=ReportTimeOut)
 def get_report_time(
     id: uuid.UUID,
     current_user=Depends(require_role([
@@ -126,7 +126,7 @@ def get_report_time(
 #------------------------------
 # Update report time
 #------------------------------
-@router.patch("/report-times/{id}", response_model=ReportTimeOut)
+@router.patch("/report-times/{id}/", response_model=ReportTimeOut)
 def update_report_time(
     id: uuid.UUID,
     data: ReportTimeUpdate,
